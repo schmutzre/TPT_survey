@@ -1,0 +1,214 @@
+---
+title: "Results"
+author: "Remo Schmutz"
+date: "2024-02-23"
+output:
+  html_document: 
+    fig_caption: true
+    code_folding: hide
+    highlight: haddock
+    theme: flatly
+    toc: yes
+    toc_float: yes
+---
+
+```{r, include=FALSE}
+library(tidyverse)
+library(wesanderson)
+library(rnaturalearth)
+library(sf)
+df <- readRDS("../data_clean/data.rds") %>% 
+  filter(!is.na(region))
+```
+
+### Figure 1
+
+Identifying populations for latent TB infection (LTBI) testing and TB preventive treatment after exclusion of active TB. Mapping according to WHO guidelines (see WHO consolidated guidelines, Table 1, page xi).
+
+```{r}
+df1 <- df %>% 
+  select(record_id, region, tpt_eligible_adult___6, 
+         tpt_lt12m, tpt_ge1y, tpt_g11y_tb, tpt_peds_lt5, tpt_peds_ge9, 
+         tpt_adults, tpt_hrcontacts, tpt_atrisk___3:tpt_atrisk___13) %>% 
+  mutate(across(everything(),
+                ~ as.factor(case_when(. == 77 ~ NA,
+                            TRUE ~ .))),
+         across(c(tpt_peds_lt5, tpt_peds_ge9, tpt_adults, tpt_hrcontacts),
+                ~ as.factor(case_when(. == 2 ~ "0",
+                                      TRUE ~ .)))) %>% 
+  pivot_longer(
+    cols = -c(record_id,region),
+    names_to = "variable",
+    values_to = "category") %>%
+  mutate(category = as.character(category)) 
+
+prop_all <- df1 %>%
+  group_by(variable, category) %>%
+  summarize(count = n(), .groups = 'drop') %>% 
+  mutate(category = factor(case_when(is.na(category) ~ "Not available",
+                                     TRUE ~ category)))
+
+lvl <- c("Not available", "3", "0", "1")
+
+prop_all %>% 
+  ggplot(aes(x = variable, y = count, fill = factor(category, levels = lvl, exclude = NULL))) +
+  geom_bar(stat = "identity", position = "fill") +
+  labs(title = "", x = "", y = "") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(
+    values = wes_palette("GrandBudapest2"),  # Change colors as needed
+    labels = c("Not available", "Don't know", "No", "Yes"),
+    name = NULL) +
+  scale_y_continuous(expand = c(0,0), labels = scales::percent)
+```
+
+### Figure 2
+
+Formal training for TPT and barriers to TPT administration
+
+```{r}
+df2 <- df %>% 
+  select(record_id, region, tpt_training, tpt_barriers___77:tpt_barriers___88) %>%
+  mutate(across(everything(), ~ as.factor(.))) %>% 
+  pivot_longer(cols = -c(record_id, region),
+               names_to = "variable",
+               values_to = "category")
+```
+
+#### complete
+
+```{r}
+prop_all2 <- df2 %>%
+  group_by(variable, category) %>%
+  summarize(count = n(), .groups = 'drop') %>% 
+  mutate(category = factor(case_when(is.na(category) ~ "Not available",
+                                     TRUE ~ category)))
+
+prop_all2 %>% 
+  ggplot(aes(x = variable, y = count, fill = factor(category, levels = lvl, exclude = NULL))) +
+  geom_bar(stat = "identity", position = "fill") +
+  labs(title = "", x = "", y = "") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(
+    values = wes_palette("GrandBudapest2"),  # Change colors as needed
+    labels = c("Not available", "Don't know","No", "Yes"),
+    name = NULL) +
+  scale_y_continuous(expand = c(0,0), labels = scales::percent)
+```
+
+#### per region 
+
+```{r}
+prop_region2 <- df2 %>%
+  group_by(region, variable, category) %>%
+  summarize(count = n(), .groups = 'drop') %>% 
+  mutate(category = factor(case_when(is.na(category) ~ "Not available",
+                                     TRUE ~ category)))
+
+prop_region2 %>% 
+  ggplot(aes(x = variable, y = count, fill = factor(category, levels = lvl, exclude = NULL))) +
+  geom_bar(stat = "identity", position = "fill") +
+  labs(title = "", x = "", y = "") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(
+    values = wes_palette("GrandBudapest2"),  # Change colors as needed
+    labels = c("Not available", "Don't know","No", "Yes"),
+    name = NULL) +
+  scale_y_continuous(expand = c(0,0), labels = scales::percent)+
+  facet_wrap(~region)
+```
+
+### Figure 3 
+
+Map of participating countries and sites
+
+```{r}
+library(wbstats)
+world <- ne_countries(scale = "medium", returnclass = "sf") %>% 
+  filter(!admin =="Antartica")
+target_crs <- "+proj=moll"
+
+world_moll <- world %>% 
+  st_transform(crs = target_crs)
+  
+df3 <- df %>% 
+  select(record_id, country, region, tpt_prov) %>% 
+  mutate(tpt_prov = as.numeric(tpt_prov)) %>% 
+  group_by(country) %>% 
+  summarise(prop = sum(tpt_prov) / n(), 
+            number = n())
+```
+
+### Figure 4
+
+Numbers of newly initiated TPT and newly intitated ART in a subset of sites, 2018-2022 (data from COVID-TB survey, MR214). 
+
+```{r}
+
+```
+
+### Figure 5
+
+Available treatment options of TPT regimens.
+
+```{r}
+df5 <- df %>% 
+  select(record_id, inh6_b___1:mdrtb_specify_b___3) %>% 
+  mutate(across(everything(), ~ as.factor(.)), 
+         record_id = as.numeric(record_id))  %>% 
+  pivot_longer(cols = -c(record_id),
+               names_to = "variable",
+               values_to = "category") %>% 
+  mutate(category = as.numeric(category)-1,
+         class = case_when(str_detect(variable, "1$") ~ "adults",
+                   str_detect(variable, "2$") ~ "children",
+                   str_detect(variable, "3$") ~ "don't know",
+                   str_detect(variable, "7$") ~ "none"),
+         drug = as.factor(case_when(str_detect(variable, "inh6") ~ "6H",
+                          str_detect(variable, "^inh9") ~ "9H",
+                          str_detect(variable, "^inh12") ~ "12H",
+                          str_detect(variable, "^inh36") ~ "36H",
+                          str_detect(variable, "^rif3") ~ "3R",
+                          str_detect(variable, "^rif4") ~ "4R",
+                          str_detect(variable, "^inh_rif3") ~ "3HR",
+                          str_detect(variable, "^inh_rif4") ~ "4HR",
+                          str_detect(variable, "^hp3_12") ~ "3HP",
+                          str_detect(variable, "^hp3_1m") ~ "1HP",
+                          str_detect(variable, "^mdrtb") ~ "Reg. for MDR-TB exp.",
+                          TRUE ~ variable))) %>% 
+  select(-variable) %>% 
+  group_by(drug, class) %>% 
+  summarize(count = sum(category), .groups = 'drop') %>% 
+  mutate(prop = round(count / nrow(df),2) *100,
+         class = as.factor(class),
+         place = if_else(prop > 20, 1, 0),
+         perc = paste(" ", prop, "% "))
+
+lvl5 <- c("none","don't know", "children","adults")
+
+df5 %>% 
+  ggplot(aes(x = prop, y = factor(class, levels = lvl5), fill = class)) + 
+  geom_col() +
+  geom_text(aes(label = perc, hjust = place)) +
+  facet_wrap(~drug) +
+  theme_classic() +
+  labs(y = "", x = "") +
+  scale_x_continuous(expand = c(0,0), limits = c(0,100))+
+  scale_fill_manual(name = NULL, values = wes_palette("GrandBudapest1"))+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.y=element_blank())
+```
+
+
+
+### Table 1
+
+### Table 2
+
+### Table 3
