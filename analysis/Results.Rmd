@@ -1,13 +1,13 @@
 ---
 title: "Results"
 author: "Remo Schmutz"
-date: "2024-02-23"
+date: "2024-04-04"
 output:
   html_document: 
     fig_caption: true
     code_folding: hide
     highlight: tango
-    theme: paper
+    theme: simplex
     toc: yes
     toc_float: yes
 ---
@@ -21,139 +21,123 @@ library(readxl)
 library(janitor)
 library(paletteer)
 library(maps)
+library(table1)
+library(ggpubr)
+library(kableExtra)
+library(scales)
+library(ggradar)
+library(showtext)
+
+source("../utils/plots.R")
 ```
+
+# Notes / Questions
+
+1.  Regarding stratifying the plots for \`level of integration\`: The catgeory Other can be left out in the plot imo, as there are only 3 observtions and these are pretty non-informative. Should be enough to mention their responses somewhere I guess (see table below).
+2.  There are response categories which are a bit nuanced and may can be consolidated somehow:
+    -   "Don't know" (that is the actual response from the site, they actually don't know the response)
+    -   "None" (that is the actual response from the site, none of the responses apply)
+    -   NA (coded this myself when when none of the categories were crossed for this site)
+3.  Should we include some inference about difference in proportions e.g. $\chi^2$ or is this solely descriptive?
+    -   Would need to state some hypothesis in the SAP beforehand then.
+4.  I could create a publicly available dashboard with R shiny to go with the publication, where people can then play around with filters, plotting options ect. What do you think? (assuming we are allowed to do that)
 
 ```{r, echo = FALSE}
-# tb burden 
-codes <- data.frame(
-  Country = c("Azerbaijan", "Bangladesh", "Belarus", "Botswana", "Brazil", 
-              "Cameroon", "China", "DRC", "Eswatini", "Ethiopia", "Guinea", 
-              "India", "Indonesia", "Kazakhstan", "Kenya", "Nigeria", 
-              "Pakistan", "Phillipines", "Russia", "Sierra Leone", 
-              "South Africa", "Thailand", "Uganda", "Vietnam", "Zambia"),
-  Abbreviation = c("AZE", "BGD", "BLR", "BWA", "BRA", "CMR", "CHN", "COD",
-                   "SWZ", "ETH", "GIN", "IND", "IDN", "KAZ", "KEN", "NGA",
-                   "PAK", "PHL", "RUS", "SLE", "ZAF", "THA", "UGA", "VNM", "ZMB"))
+HBC <- read_excel("../data_clean/High_burden_countries.xlsx") %>%
+  mutate(Country = ifelse(Country == "United Republic of Tanzania", "Tanzania", Country))
 
-tb_burden <- read_excel("../data_raw/High_burden_countries.xlsx") %>% 
-  filter(Any == 1) %>% 
-  select(Country) %>% 
-  merge(codes, by = "Country", all.x = TRUE)
-
-# main file
 df <- readRDS("../data_clean/data.rds") %>% 
-  filter(!is.na(region)) %>% 
-  mutate(burden_tb = if_else(country %in% tb_burden$Abbreviation, 1, 0),
-         region = as.factor(case_when(region %in% c("AP","CN") ~ "Asia-Pacific-Latin",
-                                      region %in% c("CA", "EA", "SA", "WA") ~ "Africa")))
-
+  filter(!is.na(region), survey_status_complete == 2) %>%
+  mutate(country = as.character(country)) %>%  # Convert 'country' to character type
+  left_join(HBC, by = c("country" = "Code")) %>%
+  rename(region_exact = region) %>% 
+  mutate(
+    HBC_ANY = as.factor(if_else(!is.na(`ANY`) & `ANY` == 1, "HBC", "Not HBC")),
+    HBC_TB = as.factor(if_else(!is.na(`TB HBC`) & `TB HBC` == 1, "HBC", "Not HBC")),
+    HBC_TB_HIV = as.factor(if_else(!is.na(`TB/HIV HBC`) & `TB/HIV HBC` == 1, "HBC", "Not HBC")),
+    HBC_DR_TB = as.factor(if_else(!is.na(`DR-TB HBC`) & `DR-TB HBC` == 1, "HBC", "Not HBC")),
+    region = as.factor(case_when(
+      region_exact == "AP" ~ "Asia-Pacific",
+      region_exact == "CN" ~ "Latin America",
+      region_exact %in% c("CA", "EA", "SA", "WA") ~ "Africa")),
+    tbhiv_integration.factor = fct_recode(tbhiv_integration.factor,
+                                             "Full integration" = "Full-integration (TB diagnostics and TB treatment under same roof or same facility than HIV care)",
+                                             "Partial integration" = "Partial integration (either TB diagnostics or TB treatment available under same roof or same facility than HIV care)",
+                                             "No integration" = "Not integrated",
+                                             "Other" = "Other, specify: {integration_oth}")) %>%
+  select(-c(`ANY`, `TB HBC`, `TB/HIV HBC`, `DR-TB HBC`, Country))
 ```
 
-### Figure 1
+# Figure 1
 
-I left the variable names unchanged for the moment. Here the corresponding description from the SAP:
-
-**People living with HIV:** 
-
-1 Adults and adolescents 10 years or older ("tpt_eligible_adult") 
-
-2\. Infants \<12 months who are in contact with a person with TB ("tpt_lt12m") 
-
-3\. Adults and adolescents 10 years or older in a high TB transmission setting, regardless of contact with TB patient ("tpt_ge1y") 
-
-4\. All children living with HIV who have successfully completed treatment for TB ("tpt_g11y_tb") 
-
-**Household contacts (regardless of HIV status) of people with bacteriologically confirmed TB, regardless of HIV:** 
-
-5\. Children \<5 years ("tpt_peds_1t5") 
-
-6a. Children 5 years or older ("tpt_peds_ge9") 
-
-6b. Adolescents 10 years or older and adults ("tpt_adults") 
-
-7\. High-risk household contacts of people with multidrug-resistant TB ("tpt_hrcontacts") 
-
-**Other people at risk, regardless of HIV status: ("tpt_atrisk", checkbox categories)** 
-
-8a. People on anti-TNF treatment ("tpt_atrisk\_\_\_3") 
-
-8b. People preparing for organ or haematological transplant ("tpt_atrisk\_\_\_4") 
-
-8c. People with silicosis ("tpt_atrisk\_\_\_5") 
-
-9a. Prisoners ("tpt_atrisk\_\_\_6") 
-
-9b. Health care workers ("tpt_atrisk\_\_\_7") 
-
-9c. Immigrants from high TB burden countries ("tpt_atrisk\_\_\_8") 
-
-9d. Homeless people ("tpt_atrisk\_\_\_9") 
-
-9e. People who use drugs ("tpt_atrisk\_\_\_10") 
-
-10a. People who engage in the harmful use of alcohol ("tpt_atrisk\_\_\_11") 
-
-10b. Tobacco smokers ("tpt_atrisk\_\_\_12") 
-
-10c. Underweight people 
+Identifying populations for latent TB infection (LTBI) testing and TB preventive treatment after exclusion of active TB. Mapping according to WHO guidelines (see WHO consolidated guidelines, Table 1, page xi).
 
 ```{r, fig.cap="Figure 1: Identifying populations for latent TB infection (LTBI) testing and TB preventive treatment after exclusion of active TB. Mapping according to WHO guidelines."}
 df1 <- df %>% 
-  select(record_id, region, tpt_eligible_adult___6, 
-         tpt_lt12m, tpt_ge1y, tpt_g11y_tb, tpt_peds_lt5, tpt_peds_ge9, 
-         tpt_adults, tpt_hrcontacts, tpt_atrisk___3:tpt_atrisk___13) %>% 
-  rename(`< 5 years` = tpt_peds_lt5,
-         `5-10 years` = tpt_peds_ge9,
-         `> 10 years` = tpt_adults,
-         `high risk contacts`= tpt_hrcontacts,
-         `anti-TNF treatment` = tpt_atrisk___3,
-         `preparing for transplant` = tpt_atrisk___4,
-         silicosis = tpt_atrisk___5,
-         prisoners = tpt_atrisk___6,
-         `health workers` = tpt_atrisk___7,
-         `immigrants TB burden` = tpt_atrisk___8,
-         homeless = tpt_atrisk___9,
-         `drug users` = tpt_atrisk___10,
-         `alcohol users` = tpt_atrisk___11,
-         `tabacco users` = tpt_atrisk___12,
-         `underweight` = tpt_atrisk___13,
-         `> 10 years (HIV)` = tpt_eligible_adult___6,
-         `< 1 year in contact`= tpt_lt12m,
-         `> 10 years high TB setting`= tpt_ge1y,
-         `children completed TB trt`= tpt_g11y_tb) %>% 
-  mutate(across(everything(),
-                ~ as.factor(case_when(. == 77 ~ NA,
-                            TRUE ~ .))),
-         across(c(`< 5 years`, `5-10 years`, `> 10 years`, `high risk contacts`),
-                ~ as.factor(case_when(. == 2 ~ "0",
-                                      TRUE ~ .)))) %>% 
+  select(
+    record_id, region, tpt_eligible_adult___6, tpt_lt12m, tpt_ge1y, tpt_g11y_tb, tpt_peds_lt5,
+    tpt_peds_ge9, tpt_adults, tpt_hrcontacts, tpt_atrisk___3:tpt_atrisk___13, HBC_ANY, HBC_TB,
+    HBC_TB_HIV, HBC_DR_TB, tbhiv_integration.factor, integration_oth) %>% 
+  rename(
+    `< 5 years old` = tpt_peds_lt5,
+    `5-10 years old` = tpt_peds_ge9,
+    `> 10 years old` = tpt_adults,
+    `Contacts of MDR-TB Patients`= tpt_hrcontacts,
+    `People on anti-TNF treatment` = tpt_atrisk___3,
+    `People preparing for transplant` = tpt_atrisk___4,
+    `People with silicosis` = tpt_atrisk___5,
+    Prisoners = tpt_atrisk___6,
+    `Health workers` = tpt_atrisk___7,
+    `Immigrants (TB burden country)` = tpt_atrisk___8,
+    Homeless = tpt_atrisk___9,
+    `Drug users` = tpt_atrisk___10,
+    `Alcohol users` = tpt_atrisk___11,
+    `Tabacco users` = tpt_atrisk___12,
+    `Underweight` = tpt_atrisk___13,
+    ` > 10 years old` = tpt_eligible_adult___6, #add space to distingush it from the same variable in the other category
+    `Infants (in contact with person with TB)`= tpt_lt12m,
+    `> 10 years old (high TB setting)`= tpt_ge1y,
+    `children LWH (completed TB treatment)`= tpt_g11y_tb,
+    `Level of integration` = tbhiv_integration.factor) %>% 
+  mutate(
+    across(everything(),
+           ~ as.factor(case_when(. == 77 ~ NA, TRUE ~ .))),
+    across(
+      c(`< 5 years old`, 
+        `5-10 years old`, 
+        `> 10 years old`, 
+        `Contacts of MDR-TB Patients`),
+      ~ as.factor(case_when(. == 2 ~ "0", TRUE ~ .)))) %>%
   pivot_longer(
-    cols = -c(record_id,region),
+    cols = 
+      -c(record_id, region, HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB, `Level of integration`, integration_oth),
     names_to = "variable",
     values_to = "category") %>% 
-  mutate(category = as.character(category),
-         who_group = as.factor(
-           case_when(
-             variable %in% c("> 10 years (HIV)", 
-                             "< 1 year in contact", 
-                             "> 10 years high TB setting", 
-                             "children completed TB trt") ~ "People living with HIV",
-             variable %in% c("< 5 years",
-                             "5-10 years",
-                             "> 10 years",
-                             "high risk contacts") ~ "Household contacts",
-             variable %in% c("anti-TNF treatment",
-                             "preparing for transplant",
-                             "prisoners",
-                             "silicosis",
-                             "health workers",
-                             "immigrants TB burden",
-                             "homeless",
-                             "drug users",
-                             "alcohol users",
-                             "tabacco users",
-                             "underweight") ~ "Other people at risk", 
-             TRUE ~ "Others")))
+  mutate(
+    category = as.character(category),
+    who_group = factor(
+      case_when(
+        variable %in% c(" > 10 years old", #add a space to distinguish it from the same variable in the other category
+                        "Infants (in contact with person with TB)", 
+                        "> 10 years old (high TB setting)", 
+                        "children LWH (completed TB treatment)") ~ "PLHIV",
+        variable %in% c("< 5 years old",
+                        "5-10 years old",
+                        "> 10 years old",
+                        "Contacts of MDR-TB Patients") ~ "Household contacts",
+        variable %in% c("People on anti-TNF treatment",
+                        "People preparing for transplant",
+                        "Prisoners",
+                        "People with silicosis",
+                        "Health workers",
+                        "Immigrants (TB burden country)",
+                        "Homeless",
+                        "Drug users",
+                        "Alcohol users",
+                        "Tabacco users",
+                        "Underweight") ~ "Other people at risk", 
+        TRUE ~ "Others"),
+      levels = c("PLHIV", "Household contacts", "Other people at risk")))
 
 df1_ranked <- df1 %>%
   group_by(who_group, variable) %>%
@@ -161,70 +145,121 @@ df1_ranked <- df1 %>%
             count_yes = sum(category == "1", na.rm = TRUE), 
             .groups = 'drop') %>%
   mutate(yes_proportion = count_yes / count) %>%
-  arrange(who_group, desc(yes_proportion)) %>%
+  arrange(who_group, yes_proportion) %>%
   mutate(rank = row_number())
 
-df1 <- df1 %>%
-  left_join(df1_ranked %>% select(who_group, variable, rank), by = c("who_group", "variable")) %>%
-  mutate(variable = forcats::fct_reorder(variable, rank))
-
-prop_all <- df1 %>%
+df1A <- df1 %>%
+  left_join(df1_ranked %>% select(who_group, variable, rank), 
+            by = c("who_group", "variable")) %>%
+  mutate(variable = forcats::fct_reorder(variable, rank)) %>% 
   group_by(variable, category, who_group) %>%
   summarize(count = n(), .groups = 'drop') %>%
   mutate(category = factor(case_when(is.na(category) ~ "Not available", TRUE ~ category)))
 
 lvl <- c("Not available", "3", "0", "1")
 
-custom_colors <- c("Not available" = "gray70",  # Light gray for "Not available"
-                   "3" = "gray50",             # Darker gray for "3"
-                   "0" = wes_palette("GrandBudapest2")[3],  # Colors from wes_palette
+custom_colors <- c("Not available" = "gray70",  
+                   "3" = "gray50",            
+                   "0" = wes_palette("GrandBudapest1")[2],  
                    "1" = wes_palette("GrandBudapest2")[4])
-
-prop_all %>% 
-  ggplot(aes(x = variable, y = count, fill = factor(category, levels = lvl, exclude = NULL))) +
-  geom_bar(stat = "identity", position = "fill") +
-  labs(title = "", x = "", y = "Proportion of clinics (%)") +
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_manual(
-    values = custom_colors,  # Change colors as needed
-    labels = c("Not available", "Don't know", "No", "Yes"),
-    name = NULL) +
-  scale_y_continuous(expand = c(0,0), labels = function(x) paste0(format(x * 100, digits = 2), "%")) +
-  facet_wrap(~who_group, scales = "free_x") 
 ```
 
-\
+```{r}
+df1A %>% 
+  ggplot(
+    aes(y = variable, x = count, fill = factor(category, levels = lvl, exclude = NULL))) +
+  geom_bar(
+    stat = "identity", 
+    position = "fill") +
+  labs(
+    title = "", 
+    y = "", 
+    x = "Proportion of clinics (%)") +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(hjust = 1, size = 8),
+    legend.position = "bottom") + 
+  scale_fill_manual(
+    values = custom_colors,
+    labels = c("Yes", "No", "Don't know", "Not available"),  
+    breaks = c("1", "0", "3", "Not available"),  
+    name = NULL)+
+  scale_x_continuous(
+    expand = c(0,0), 
+    labels = function(x) paste0(format(x * 100, digits = 2))) +
+  facet_grid(
+    rows = vars(who_group), 
+    scales = "free_y", 
+    space = "free", 
+    labeller = label_wrap_gen(width = 14)) 
+```
 
-### Figure 2
+### Stratified by high burden countries
 
-**11.15 What are the most important barriers to initiating patients with HIV on TPT at this facility? Check all that apply**  
+I will solve the minor cosmetic details of the plot (e.g. smaller facet titles) as soon as we decided on which plots to use.
 
--   None (No barriers to initiating patients on TPT) ("tpt_barriers\_\_\_77") 
+```{r}
+df1_hbc <- df1 %>%
+  rowwise() %>%
+  mutate(
+    HBC = {
+      hbc_values <- c_across(c(HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB))
+      hbc_labels <- c("HBC any", "HBC TB", "HBC TB/HIV", "HBC DR TB")
+      paste(hbc_labels[hbc_values == "HBC"], collapse = ",")}) %>%
+  ungroup()
 
--   Medication availability or stockouts (Isoniazid, Rifapentine) ("tpt_barriers\_\_\_1") 
+df1_to_duplicate <- df1_hbc %>%
+  filter(str_detect(HBC, ","))  # Select rows with multiple categories
 
--   LTBI Testing stockouts (Tuberculin and/or IGRA) ("tpt_barriers\_\_\_2") 
+df1_duplicated <- df1_to_duplicate %>%
+  separate_rows(HBC, sep = ",")  # Separate into multiple rows
 
--   Availability of diagnostics for ruling out active TB) ("tpt_barriers\_\_\_3") 
+df1_no_duplication <- df1_hbc %>%
+  filter(!str_detect(HBC, ",")) %>%
+  mutate(HBC = ifelse(HBC == "", "Not HBC", HBC))
 
--   Concerns about drug resistance) ("tpt_barriers\_\_\_4") 
+final_hbc <- bind_rows(df1_duplicated, df1_no_duplication)
 
--   Increased workload ("tpt_barriers\_\_\_5") 
+GENfig1_sup(final_hbc, "HBC")
+```
 
--   Patients refuse TPT ("tpt_barriers\_\_\_6") 
+### Stratified by region
 
--   Access to HIV care using differentiated service delivery ("tpt_barriers\_\_\_7") 
+```{r}
+GENfig1_sup(df1, "region")
+```
 
--   Other, (specify) ("tpt_barriers\_\_\_88") 
+### Stratified by level of integration
 
-**11.14 Has anyone at this HIV clinic or a collocated TB clinic attended a formal training (such as hosted by the Ministry/Department of Health or an NGO) on TPT provision?"** 
+```{r}
+GENfig1_sup(df1, "Level of integration")
+```
+
+Note, there are only three clinics that responded "Other". These are their written responses:
+
+```{r}
+df1_int_OTH <- df1 %>% 
+  filter(`Level of integration` == "Other") %>% 
+  select(record_id, integration_oth) %>% 
+  distinct()
+
+df %>% filter(record_id %in% df1_int_OTH$record_id) %>% 
+  select(name, country, region.factor) %>% 
+  cbind(df1_int_OTH) %>%
+  kable() %>% 
+  kable_styling(full_width = T)
+```
+
+# Figure 2
+
+Barriers to TPT administration: \*\*11.15 What are the most important barriers to initiating patients with HIV on TPT at this facility? Check all that apply\*\*  
 
 ```{r}
 df2 <- df %>% 
-  select(record_id, region, tpt_training, tpt_barriers___77:tpt_barriers___88) %>%
-  rename(training = tpt_training,
-         'no barriers' = tpt_barriers___77,
+  select(record_id, region, tpt_barriers___77:tpt_barriers___88, HBC_ANY, HBC_TB,
+    HBC_TB_HIV, HBC_DR_TB, tbhiv_integration.factor) %>%
+  rename(
+         'No barriers' = tpt_barriers___77,
          'Medication availability' = tpt_barriers___1,
          'LTBI Testing stockouts' = tpt_barriers___2,
          'Availability of diagnostics active TB' = tpt_barriers___3,
@@ -232,87 +267,112 @@ df2 <- df %>%
          'Increased workload' = tpt_barriers___5,
          'Patients refuse TPT' = tpt_barriers___6,
          'Access to HIV care service delivery'= tpt_barriers___7,
-         Others = tpt_barriers___88) %>% 
+         'Other barriers' = tpt_barriers___88,
+         'Level of integration' = tbhiv_integration.factor) %>% 
   mutate(across(everything(), ~ as.factor(.))) %>% 
-  pivot_longer(cols = -c(record_id, region),
+  pivot_longer(cols = -c(record_id, region, HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB, `Level of integration`),
                names_to = "variable",
-               values_to = "category")
+               values_to = "category") %>% 
+  mutate(variable = as.factor(variable),
+         fct_relevel(variable, "No barriers")) 
 ```
 
-#### complete
-
-```{r, fig.cap="Figure 2a: Proportion of clinics responding to the questions regarding specific boundaries to initiating patients with HIV on TPT at the clinic. Also, if somebody in the clinic received formal training for TPT."}
+```{r, fig.cap="Figure 2: Proportion of clinics responding to the questions regarding specific boundaries to initiating patients with HIV on TPT at the clinic. Also, if somebody in the clinic received formal training for TPT."}
 df2_ranked <- df2 %>%
   group_by(variable) %>% 
   summarize(count = n(), 
             count_yes = sum(category == "1", na.rm = TRUE), 
             .groups = 'drop') %>%
   mutate(yes_proportion = count_yes / count) %>%
-  arrange(desc(yes_proportion)) %>%
+  arrange(yes_proportion) %>%
   mutate(rank = row_number())
 
-df2 <- df2 %>%
-  left_join(df2_ranked %>% select( variable, rank), by = c("variable")) %>% 
-  mutate(variable = forcats::fct_reorder(variable, rank))
-
-
-prop_all2 <- df2 %>%
+df2A <- df2 %>%
+  left_join(df2_ranked %>% select(variable, rank), by = "variable") %>%
+  mutate(variable = forcats::fct_reorder(variable, rank)) %>%
   group_by(variable, category) %>%
-  summarize(count = n(), .groups = 'drop') %>% 
-  mutate(category = factor(case_when(is.na(category) ~ "Not available",
-                                     TRUE ~ category)))
+  summarize(count = n(), .groups = 'drop') %>%
+  mutate(
+    category = factor(case_when(is.na(category) ~ "Not available", TRUE ~ category)),
+    variable = as.factor(variable),
+    variable = fct_relevel(variable, "No barriers")  # Move "No barriers" to the front
+  )
 
-prop_all2 %>% 
+df2A %>% 
   ggplot(aes(x = variable, y = count, fill = factor(category, levels = lvl, exclude = NULL))) +
   geom_bar(stat = "identity", position = "fill") +
   labs(title = "", x = "", y = "Proportion of clinics (%)") +
-  theme_classic() +
-  theme(axis.text.x = element_text(hjust = 1)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(hjust = 1), legend.position = "bottom") +
   scale_fill_manual(
-    values = custom_colors,  # Change colors as needed
-    labels = c("Not available", "Don't know","No", "Yes"),
-    name = NULL) +
-  scale_y_continuous(expand = c(0,0), labels = function(x) paste0(format(x * 100, digits = 2), "")) + coord_flip()
+    values = custom_colors,
+    labels = c("Yes", "No", "Don't know", "Not available"),
+    breaks = c("1", "0", "3", "Not available"),
+    name = NULL
+  ) +
+  scale_y_continuous(expand = c(0, 0), labels = function(x) paste0(format(x * 100, digits = 2),"")) +
+  coord_flip()
 ```
 
-#### per region
+### Stratified by high burden countries
 
-```{r, fig.cap="Figure 2b: Proportion of clinics per region responding to the questions regarding specific boundaries to initiating patients with HIV on TPT at the clinic. Also, if somebody in the clinic received formal training for TPT."}
+```{r}
+df2_hbc <- df2 %>%
+  rowwise() %>%
+  mutate(
+    HBC = {
+      hbc_values <- c_across(c(HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB))
+      hbc_labels <- c("HBC any", "HBC TB", "HBC TB/HIV", "HBC DR TB")
+      paste(hbc_labels[hbc_values == "HBC"], collapse = ",")}) %>%
+  ungroup()
 
-prop_region2 <- df2 %>%
-  group_by(region, variable, category) %>%
-  summarize(count = n(), .groups = 'drop') %>% 
-  mutate(category = factor(case_when(is.na(category) ~ "Not available",
-                                     TRUE ~ category)))
+df2_to_duplicate <- df2_hbc %>%
+  filter(str_detect(HBC, ","))  # Select rows with multiple categories
 
-prop_region2 %>% 
-  ggplot(aes(x = variable, y = count, fill = factor(category, levels = lvl, exclude = NULL))) +
-  geom_bar(stat = "identity", position = "fill") +
-  labs(title = "", x = "", y = "Proportion of clinics (%)") +
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_manual(
-    values = wes_palette("GrandBudapest2"),  # Change colors as needed
-    labels = c("Not available", "Don't know","No", "Yes"),
-    name = NULL) +
-  scale_y_continuous(expand = c(0,0), labels = function(x) paste0(format(x * 100, digits = 2), ""))+
-  facet_wrap(~region) 
+df2_duplicated <- df2_to_duplicate %>%
+  separate_rows(HBC, sep = ",")  # Separate into multiple rows
+
+df2_no_duplication <- df2_hbc %>%
+  filter(!str_detect(HBC, ",")) %>%
+  mutate(HBC = ifelse(HBC == "", "Not HBC", HBC))
+
+final_hbc2 <- bind_rows(df2_duplicated, df2_no_duplication)
+
+GENfig2_sup(final_hbc2, "HBC")
 ```
 
-### Figure 3
+### Stratified by region
 
-```{r, fig.cap="Figure 3: Map of participating countries and sites, color coded by the proportion of clinics in the region which responded 'yes' to the following question: 'Does this HIV clinic (or a co-located TB clinic) currently provide TB preventive therapy (TPT)?' "}
+```{r}
+GENfig2_sup(df2, "region")
+```
 
-world <- map_data("world")
+### Stratified by level of integration
+
+```{r}
+GENfig2_sup(df2, "Level of integration")
+```
+
+# Figure 3
+
+-   Proportion of sites who responded "Yes" to the following question: "11.6 Does this HIV clinic (or a co-located TB clinic) currently provide TB preventive therapy (TPT)?".
+
+-   The points are located at the coordinates from the sites (from Google Maps).
+
+```{r}
+coords <- read.csv("../data_clean/coordinates_sites.csv") %>%
+  separate(coord, into = c("lat", "long"), sep = ",", convert = TRUE) 
+  
+world <- map_data("world") 
 
 df3a <- df %>% 
-  select(country, region, tpt_prov) %>% 
-  group_by(region) %>% 
+  select(country, region_exact, tpt_prov) %>% 
+  group_by(region_exact) %>% 
   summarise(prop_tpt = mean(tpt_prov == 1, na.rm = TRUE))
 
 df3 <- df %>% 
-  select(country,region) %>% 
-  left_join(df3a, by = "region") %>% 
+  select(record_id, country, region, region_exact)  %>% 
+  left_join(df3a, by = "region_exact") %>%   
   mutate(region = case_when(
     country == "ARG" ~ "Argentina",
     country == "AUS" ~ "Australia",
@@ -355,12 +415,9 @@ df3 <- df %>%
     country == "ZAF" ~ "South Africa",
     country == "ZMB" ~ "Zambia",
     country == "ZWE" ~ "Zimbabwe",
-    TRUE ~ NA_character_
-  )) %>% 
-  group_by(region) %>%
-  summarize(prop_tpt = first(prop_tpt)) 
+    TRUE ~ NA_character_))  
   
-worldSubset <- left_join(world, df3, by = "region") %>% 
+worldSubset <- left_join(world, df3, by = "region", relationship =  "many-to-many") %>% 
   filter(region != "Antarctica")
 
 plain <- theme(
@@ -371,39 +428,55 @@ plain <- theme(
   panel.grid = element_blank(),
   axis.title = element_blank(),
   panel.background = element_rect(fill = "white"),
-  plot.title = element_text(hjust = 0.5)
-)
+  plot.title = element_text(hjust = 0.5))
+
+my_colors <- c("value1" = "#color1", 
+               "value2" = "#color2",
+               "value3" = "#color3",
+               "value4" = "#color4",
+               "value5" = "#color5")  # Add a color for NA values
 
 worldSubset %>% 
-  ggplot(aes(x = long, y = lat, group = group))+
+  ggplot(aes(x = long, y = lat)) +
   coord_fixed(1.3) +
-  geom_polygon(aes(fill = prop_tpt)) +
-  scale_fill_gradient(low = "lightgreen", high = "darkgreen", limits = c(0.75, 1)) +
-  plain+
-  labs(fill = "", x = "", y ="")
+  geom_polygon(aes(fill = prop_tpt, group = group)) +
+  scale_fill_gradient(low = "#D8F3DC", high = "#3DAC78", limits = c(0.75, 1), na.value = "#CECECD") +
+  geom_point(data = coords, aes(x = long, y = lat), color = wes_palette("GrandBudapest1")[2], size = .7, position = "jitter") +
+  plain +
+  labs(fill = "", x = "", y = "")
 ```
 
-### Figure 4
+# Figure 4
 
 Numbers of newly initiated TPT and newly intitated ART in a subset of sites, 2018-2022 (data from COVID-TB survey, MR214).
 
 -   Nicolas will provide the figure
 
-### Figure 5
+# Figure 5
 
 Available treatment options of TPT regimens.
 
--   Note, the percentages don't necessarily add to 100% when more than one of them were crossed (children + adults).
+-   I coded "not available" when none of the others were crossed.
 
--   I coded "not available" when none of the others were crossed. As "don't know" is also not on the form but in the csv sheet I treated this differently - we could add these two categories together I suppose.
+-   This is the table of the survey for reference.
 
--   This is the table of the survey for reference (from the SAP).
+    ![](images/treatments-01.png)
 
-![](images/treatments.png)
+```{r include=FALSE}
+code_trt <- function(adult_col, child_col, none_col, unknown_col) {
+  case_when(
+    adult_col == 1 & child_col == 1 ~ "Both",
+    adult_col == 1 ~ "Adults",
+    child_col == 1 ~ "Children",
+    none_col == 1 ~ "None",
+    unknown_col == 1 ~ "Don't know",
+    TRUE ~ NA_character_
+  )
+}
 
-```{r}
 df5 <- df %>% 
-  select(record_id, inh6_b___1:mdrtb_specify_b___3) %>% 
+  select(record_id, inh6_b___1:other_specify_b___3, region, HBC_ANY, HBC_TB,
+    HBC_TB_HIV, HBC_DR_TB, tbhiv_integration.factor) %>% 
   mutate(
          inh6_b_99 = if_else(rowSums(select(., starts_with("inh6"))) == 0, 1, 0),
          inh9_b_99 = if_else(rowSums(select(., starts_with("inh9"))) == 0, 1, 0),
@@ -416,56 +489,334 @@ df5 <- df %>%
          hp3_12_b_99 = if_else(rowSums(select(., starts_with("hp3_12"))) == 0, 1, 0),
          hp3_1month_b_99 = if_else(rowSums(select(., starts_with("hp3_1month"))) == 0, 1, 0),
          mdrtb_b_99 = if_else(rowSums(select(., starts_with("mdrt"))) == 0, 1, 0),
+         other_specify_b_99 = if_else(rowSums(select(., starts_with("other"))) == 0, 1, 0),
          across(everything(), ~ as.factor(.)),
-         record_id = as.numeric(record_id))  %>% 
-  pivot_longer(cols = -c(record_id),
-               names_to = "variable",
-               values_to = "category") %>% 
-  mutate(category = as.numeric(category)-1,
-         class = case_when(str_detect(variable, "1$") ~ "adults",
-                   str_detect(variable, "2$") ~ "children",
-                   str_detect(variable, "3$") ~ "don't know",
-                   str_detect(variable, "7$") ~ "none",
-                   str_detect(variable, "9$") ~ "not available"),
-         drug = as.factor(case_when(str_detect(variable, "inh6") ~ "6H",
-                          str_detect(variable, "^inh9") ~ "9H",
-                          str_detect(variable, "^inh12") ~ "12H",
-                          str_detect(variable, "^inh36") ~ "36H",
-                          str_detect(variable, "^rif3") ~ "3R",
-                          str_detect(variable, "^rif4") ~ "4R",
-                          str_detect(variable, "^inh_rif3") ~ "3HR",
-                          str_detect(variable, "^inh_rif4") ~ "4HR",
-                          str_detect(variable, "^hp3_12") ~ "3HP",
-                          str_detect(variable, "^hp3_1m") ~ "1HP",
-                          str_detect(variable, "^mdrtb") ~ "Reg. for MDR-TB exp.",
-                          TRUE ~ variable))) %>%   
-  select(-variable) %>% 
-  group_by(drug, class) %>% 
-  summarize(count = sum(category), .groups = 'drop') %>% 
-  mutate(prop = round(count / nrow(df),2) *100,
-         class = as.factor(class),
-         perc = paste(" ", prop, "%"))
-
-lvl5 <- c("not available", "none","don't know", "children","adults")
-
-df5 %>% 
-  ggplot(aes(x = prop, y = factor(class, levels = lvl5), fill = class)) + 
-  geom_col() +
-  geom_text(aes(label = perc, hjust = 0)) +
-  facet_wrap(~drug) +
-  theme_classic() +
-  labs(y = "", x = "") +
-  scale_x_continuous(expand = expansion(mult = c(0,0.2)), limits = c(0,100))+
-  scale_fill_manual(name = NULL, values = wes_palette("Zissou1"))+
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank(),
-        axis.title.y=element_blank(),
-        axis.text.y=element_blank())
+         record_id = as.numeric(record_id),
+         '6-month isoniazid (6H)' = 
+           code_trt(inh6_b___1, inh6_b___2, inh6_b___77, inh6_b___3),
+         '9-month isoniazid (9H)' = 
+           code_trt(inh9_b___1, inh9_b___2, inh9_b___77, inh9_b___3),
+         '12-month isoniazid (12H)' = 
+           code_trt(inh12_b___1, inh12_b___2, inh12_b___77, inh12_b___3),
+         '36/Lifetime isoniazid (36/Lifetime H)' = 
+           code_trt(inh36_b___1, inh36_b___2, inh36_b___77, inh36_b___3),
+         '3-month rifampicin (3R)' = 
+           code_trt(rif3_b___1, rif3_b___2, rif3_b___77, rif3_b___3),
+         '4-month rifampicin (4R)' = 
+           code_trt(rif4_b___1, rif4_b___2, rif4_b___77, rif4_b___3),
+         '3-month isoniazid-rifampicin (3HR)' = 
+           code_trt(inh_rif3_b___1, inh_rif3_b___2, inh_rif3_b___77, inh_rif3_b___3),
+         'Once-weekly isoniazid-rifapentine for 12 weeks (3HP)' = 
+           code_trt(hp3_12weeks_b___1, hp3_12weeks_b___2, hp3_12weeks_b___77, hp3_12weeks_b___3),
+         'Once-daily isoniazid-rifapentine for 1 month (1HP)' = 
+           code_trt(hp3_1month_b___1, hp3_1month_b___2, hp3_1month_b___77, hp3_1month_b___3),
+         'Regimens for MDR-TB exposure' = 
+           code_trt(mdrtb_specify_b___1, mdrtb_specify_b___2, mdrtb_specify_b___77,
+                    mdrtb_specify_b___3),
+         Other = 
+           code_trt(other_specify_b___1, other_specify_b___2, other_specify_b___77,
+                    other_specify_b___3)) %>% 
+  select(record_id, '6-month isoniazid (6H)':Other, region, HBC_ANY, HBC_TB,
+    HBC_TB_HIV, HBC_DR_TB, tbhiv_integration.factor)  
 ```
 
-### Table 1
+```{r}
+custom_colors <- c("Both" = "#77dd77",  
+                   "Adults" = "#99eb99",  
+                   "Children" = "#c1f0c1",  
+                   "None" = "#ff6961",  
+                   "Don't know" = "#d3d3d3",  
+                   "Missing" = "#a9a9a9")
 
-### Table 2
+df5 %>%
+  select(record_id, '6-month isoniazid (6H)', 
+         'Once-weekly isoniazid-rifapentine for 12 weeks (3HP)',
+         '3-month isoniazid-rifampicin (3HR)',
+         '9-month isoniazid (9H)') %>%
+  pivot_longer(cols = -record_id, names_to = "treatment", values_to = "status") %>% 
+  mutate(status = as.character(status),  # Convert to character to handle NA
+    status = ifelse(is.na(status), "Missing", status),  # Temporarily replace NA with "Missing"
+    status = forcats::fct_relevel(status, "Both", "Adults", "Children", "None", "Don't know", "Missing"),
+    treatment = forcats::fct_relevel(treatment, 
+      "9-month isoniazid (9H)", 
+      "3-month isoniazid-rifampicin (3HR)", 
+      "Once-weekly isoniazid-rifapentine for 12 weeks (3HP)", "6-month isoniazid (6H)"),
+    status = forcats::fct_rev(status)) %>% 
+  ggplot(aes(y = treatment, fill = status)) +
+  geom_bar( position = "fill") +
+  scale_fill_manual(values = custom_colors, na.value = "#a9a9a9", breaks = c("Both", "Adults", "Children", "None", "Don't know", "Missing")) +
+  theme_minimal() +
+  labs(y = "", x = "Proportion of clinics (%)", title = "Most used TPT regimens ") +
+  theme(legend.title = element_blank(),
+        legend.position = "bottom",
+        panel.spacing = unit(1.1, "lines")) +
+  scale_x_continuous(labels = function(x) paste0(format(x * 100, digits = 2),"")) 
+```
 
-### Table 3
+### Supplementary table
+
+I can change the order of the table for the final version (as proposed by Lukas) i.e. categories as columns. I omitted this for the moment because this option here is easier to code.
+
+```{r}
+table1(~ `6-month isoniazid (6H)` + `9-month isoniazid (9H)` + `12-month isoniazid (12H)` + `36/Lifetime isoniazid (36/Lifetime H)` + `3-month rifampicin (3R)` + `4-month rifampicin (4R)` +  `3-month isoniazid-rifampicin (3HR)` + `Once-weekly isoniazid-rifapentine for 12 weeks (3HP)` + `Once-daily isoniazid-rifapentine for 1 month (1HP)` + `Regimens for MDR-TB exposure` + Other | region, 
+       overall = c(left = "All"),
+       data = df5,
+       topclass="Rtable1-zebra",
+       caption = "Available treatment options of TPT regimens")
+```
+
+### Stratified by high burden countries
+
+Caveat for all three stratification plots: These are the top 4 treatments overall now stratified, not necessarily the top 4 per stratum.
+
+```{r}
+df5_hbc <- df5 %>%
+  rowwise() %>%
+  mutate(
+    HBC = {
+      hbc_values <- c_across(c(HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB))
+      hbc_labels <- c("HBC any", "HBC TB", "HBC TB/HIV", "HBC DR TB")
+      paste(hbc_labels[hbc_values == "HBC"], collapse = ",")}) %>%
+  ungroup()
+
+df5_to_duplicate <- df5_hbc %>%
+  filter(str_detect(HBC, ","))  # Select rows with multiple categories
+
+df5_duplicated <- df5_to_duplicate %>%
+  separate_rows(HBC, sep = ",")  # Separate into multiple rows
+
+df5_no_duplication <- df5_hbc %>%
+  filter(!str_detect(HBC, ",")) %>%
+  mutate(HBC = ifelse(HBC == "", "Not HBC", HBC))
+
+final_hbc5 <- bind_rows(df5_duplicated, df5_no_duplication)
+
+final_hbc5 %>%
+  select(record_id, '6-month isoniazid (6H)', 
+         'Once-weekly isoniazid-rifapentine for 12 weeks (3HP)',
+         '3-month isoniazid-rifampicin (3HR)',
+         '9-month isoniazid (9H)', region, HBC) %>%
+  pivot_longer(cols = -c(record_id,region, HBC), names_to = "treatment", values_to = "status") %>% 
+  mutate(status = as.character(status),  # Convert to character to handle NA
+    status = ifelse(is.na(status), "Missing", status),  # Temporarily replace NA with "Missing"
+    status = forcats::fct_relevel(status, "Both", "Adults", "Children", "None", "Don't know", "Missing"),
+    treatment = forcats::fct_relevel(treatment, 
+      "9-month isoniazid (9H)", 
+      "3-month isoniazid-rifampicin (3HR)", 
+      "Once-weekly isoniazid-rifapentine for 12 weeks (3HP)", "6-month isoniazid (6H)"),
+    status = forcats::fct_rev(status)) %>% 
+  ggplot(aes(y = treatment, fill = status)) +
+  geom_bar( position = "fill") +
+  scale_fill_manual(values = custom_colors, na.value = "#a9a9a9", breaks = c("Both", "Adults", "Children", "None", "Don't know", "Missing")) +
+  theme_minimal() +
+  labs(y = "", x = "Proportion of clinics (%)", title = "Most used TPT regimens ") +
+  theme(legend.title = element_blank(),
+        legend.position = "bottom",
+        panel.spacing = unit(0.5, "lines")) +
+  scale_x_continuous(labels = function(x) paste0(format(x * 100, digits = 2),""),breaks = c(0,0.5,1)) +
+  facet_grid(cols = vars(HBC))
+```
+
+### Stratified by region
+
+```{r}
+df5 %>%
+  select(record_id, '6-month isoniazid (6H)', 
+         'Once-weekly isoniazid-rifapentine for 12 weeks (3HP)',
+         '3-month isoniazid-rifampicin (3HR)',
+         '9-month isoniazid (9H)', region) %>%
+  pivot_longer(cols = -c(record_id,region), names_to = "treatment", values_to = "status") %>% 
+  mutate(status = as.character(status),  # Convert to character to handle NA
+    status = ifelse(is.na(status), "Missing", status),  # Temporarily replace NA with "Missing"
+    status = forcats::fct_relevel(status, "Both", "Adults", "Children", "None", "Don't know", "Missing"),
+    treatment = forcats::fct_relevel(treatment, 
+      "9-month isoniazid (9H)", 
+      "3-month isoniazid-rifampicin (3HR)", 
+      "Once-weekly isoniazid-rifapentine for 12 weeks (3HP)", "6-month isoniazid (6H)"),
+    status = forcats::fct_rev(status)) %>% 
+  ggplot(aes(y = treatment, fill = status)) +
+  geom_bar( position = "fill") +
+  scale_fill_manual(values = custom_colors, na.value = "#a9a9a9", breaks = c("Both", "Adults", "Children", "None", "Don't know", "Missing")) +
+  theme_minimal() +
+  labs(y = "", x = "Proportion of clinics (%)", title = "Most used TPT regimens ") +
+  theme(legend.title = element_blank(),
+        legend.position = "bottom") +
+  scale_x_continuous(labels = function(x) paste0(format(x * 100, digits = 2),"")) +
+  facet_grid(cols = vars(region))
+```
+
+### Stratified by level of integration
+
+```{r}
+df5 %>%
+  select(record_id, '6-month isoniazid (6H)', 
+         'Once-weekly isoniazid-rifapentine for 12 weeks (3HP)',
+         '3-month isoniazid-rifampicin (3HR)',
+         '9-month isoniazid (9H)', tbhiv_integration.factor) %>%
+  pivot_longer(cols = -c(record_id,tbhiv_integration.factor), names_to = "treatment", values_to = "status") %>% 
+  mutate(status = as.character(status),  # Convert to character to handle NA
+    status = ifelse(is.na(status), "Missing", status),  # Temporarily replace NA with "Missing"
+    status = forcats::fct_relevel(status, "Both", "Adults", "Children", "None", "Don't know", "Missing"),
+    treatment = forcats::fct_relevel(treatment, 
+      "9-month isoniazid (9H)", 
+      "3-month isoniazid-rifampicin (3HR)", 
+      "Once-weekly isoniazid-rifapentine for 12 weeks (3HP)", "6-month isoniazid (6H)"),
+    status = forcats::fct_rev(status)) %>% 
+  ggplot(aes(y = treatment, fill = status)) +
+  geom_bar( position = "fill") +
+  scale_fill_manual(values = custom_colors, na.value = "#a9a9a9", breaks = c("Both", "Adults", "Children", "None", "Don't know", "Missing")) +
+  theme_minimal() +
+  labs(y = "", x = "Proportion of clinics (%)", title = "Most used TPT regimens ") +
+  theme(legend.title = element_blank(),
+        legend.position = "bottom",
+        panel.spacing = unit(0.6, "lines")) +
+  scale_x_continuous(labels = function(x) paste0(format(x * 100, digits = 2),"")) +
+  facet_grid(cols = vars(tbhiv_integration.factor), labeller = label_wrap_gen(width = 14))
+```
+
+# Table 1
+
+```{r}
+df6 <- df %>% 
+  select(record_id, region, HBC_ANY, adultped.factor, rural.factor, level.factor, tbtrt.factor, tbhiv_integration.factor)  %>% 
+  rename(`Population the center serves` = adultped.factor,
+         `Facility location` = rural.factor,
+         `Facility level of care`  = level.factor,
+         `TB treatment for PLHIV` = tbtrt.factor,
+         `Level of integrated TB/HIV services` = tbhiv_integration.factor) %>% 
+    mutate(`Facility level of care` = fct_drop(`Facility level of care`),
+           `Facility location` = fct_drop(`Facility location`))
+
+levels(df6$`Level of integrated TB/HIV services`) <- c("Full-integration (TB diagnostics and TB treatment)", "Partial integration (TB diagnostics or TB treatment)", "Not integrated", "Other")
+
+levels(df6$`Population the center serves`) <- c("Adults", "Children", "Both")
+
+table1(~ `Population the center serves` + `Facility location` + `Facility level of care` + `TB treatment for PLHIV` + `Level of integrated TB/HIV services` |  HBC_ANY + region, data = df6,
+       overall = c(left = "All"),
+       topclass="Rtable1-zebra",
+       caption = "Site characteristics stratified by region and by classification in High Burden Countries (HBC) for in any of the three categories according to WHO definition.")
+```
+
+Original factor levels Level of integrated TB/HIV services:
+
+-   [1] "Full-integration (TB diagnostics and TB treatment under same roof or same facility than HIV care)"
+
+-   [2] "Partial integration (either TB diagnostics or TB treatment available under same roof or same facility than HIV care)"
+
+-   [3] "Not integrated"
+
+-   [4] "Other, specify: {integration_oth}"
+
+# Table 2
+
+```{r}
+df_ltbi_testing <- df %>% 
+  select(record_id, ltbi_testing___0, ltbi_testing___1, ltbi_testing___2, ltbi_testing___88, ltbi_testing_oth)  %>% 
+  mutate(`Ltbi testing` = case_when(ltbi_testing___0 == 1 ~ "None",
+                                    ltbi_testing___1 == 1 & ltbi_testing___2 == 1 ~ "Both",
+                                    ltbi_testing___1 == 1 ~ "Interferon-Gamma Release Assays (IGRAs) blood test",
+                                    ltbi_testing___2 == 1 ~ "Tuberculin Skin Test (TST)",
+                                    ltbi_testing_oth != "" ~ "Other",
+                                    TRUE ~ NA)) %>% 
+  select(record_id, `Ltbi testing`)
+
+df7 <- df %>% 
+  select(record_id, region, HBC_ANY, tb_symptom_screen.factor, screen_cough.factor, screen_fever.factor, screen_nightsweats.factor, screen_weightloss.factor, screen_contact.factor, screen_fatigue.factor, screen_oth.factor, ltbi_ligibility.factor, tpt_prov.factor, tpt_training.factor) %>% 
+  left_join(df_ltbi_testing, by = "record_id") %>% 
+  rename(`TB symptom screening for enrolled patients?` = tb_symptom_screen.factor,
+         `Cough screening` = screen_cough.factor,
+         `Fever screening`  = screen_fever.factor,
+         `Night sweats screening` = screen_nightsweats.factor,
+         `Weight loss screening` = screen_weightloss.factor,
+         `History of contact with a TB patient screening` = screen_contact.factor,
+         `Fatigue/lethargy (or decreased playfulness in children) screening` = screen_fatigue.factor,
+         Other = screen_oth.factor,
+         `LTBI to check eligibility of PLHIV to receive TPT`= ltbi_ligibility.factor,
+         `TPT currently provided in-house or at co-located TB clinic` = tpt_prov.factor,
+         `Anyone attended a formal training on TPT provision` = tpt_training.factor)  
+
+levels(df7$`TB symptom screening for enrolled patients?`) <- c("Yes, at the time of enrollment into HIV care at this facility only", "Yes, at every appointment", "Other", "No")
+
+table1(~ `TB symptom screening for enrolled patients?` + `Cough screening` + `Fever screening` + `Night sweats screening` + `Weight loss screening` + `History of contact with a TB patient screening` + `Fatigue/lethargy (or decreased playfulness in children) screening` + Other +`LTBI to check eligibility of PLHIV to receive TPT` + `TPT currently provided in-house or at co-located TB clinic` + `Anyone attended a formal training on TPT provision`|  HBC_ANY + region, data = df7,
+       overall = c(left = "All"),
+       topclass="Rtable1-zebra",
+       caption = "Availability of screening and testing services stratified by region and by classification in High Burden Countries (HBC) in any of the three categories according to WHO definition.")
+```
+
+# Table 3 / Figure 6
+
+```{r, warning=F, message=FALSE}
+#per region
+df6_region1 <- df1 %>%
+  group_by(who_group, variable, region) %>%
+  summarize(count = n(),
+            count_yes = sum(category == "1", na.rm = TRUE),
+            .groups = 'drop') %>%
+  mutate(yes_proportion = count_yes / count) %>%
+  arrange(who_group, yes_proportion) %>%
+  mutate(rank = row_number()) %>%
+  ungroup %>%
+  group_by(who_group, region) %>%
+  summarize(
+    total_yes = sum(count_yes),  # Sum of 'Yes' counts recalculated from proportions
+    total_responses = sum(count),  # Total respondents in each group
+    overall_proportion = total_yes / total_responses) %>%
+    rename(variable = who_group,
+           yes_proportion = overall_proportion) %>%
+    select(region, variable, yes_proportion)
+
+df6_region2 <- df2 %>%
+  filter(variable == "No barriers") %>%
+  group_by(variable, region) %>%
+  summarise(yes_proportion = mean(category == 1, na.rm = TRUE)) %>% 
+  select(region, variable, yes_proportion)
+
+df6_region3 <- df %>%
+  select(country, region, tpt_prov) %>%
+  group_by(region) %>%
+  summarise(yes_proportion = mean(tpt_prov == 1, na.rm = TRUE)) %>%
+  mutate(variable = "tpt") %>%
+  select(region, variable, yes_proportion)
+
+df6_region4 <- df %>%
+  select(country, region, tpt_training) %>%
+  group_by(region) %>%
+  summarise(yes_proportion = mean(tpt_training == 1, na.rm = TRUE)) %>%
+  mutate(variable = "training") %>%
+  select(region, variable, yes_proportion)
+
+df6_region <- rbind(df6_region1, df6_region2, df6_region3, df6_region4) %>% 
+  pivot_wider(names_from = variable, values_from = yes_proportion) %>% 
+  rename(HC = 'Household contacts',
+         OPAR = 'Other people at risk',
+         Training = training,
+         TPT = tpt)
+
+df6_region %>%
+  ggradar(
+    grid.label.size = 4,  # Affects the grid annotations (0%, 50%, etc.)
+    axis.label.size = 4, # Afftects the names of the variables
+    group.point.size = 4   # Simply the size of the point 
+  ) +
+  theme(legend.position = "bottom") 
+```
+
+-   This is my interpretation on how I would display the overall coverage of the different aspects of successful implementation of TPT .
+
+-   This plot (now for region) could then be replicated for HBC, urban/rural, degree of TB/HIV integration etc.
+
+-   The percentages (e.g. for training) don't exactly match the ones from the table because here I visualize the percentage of available data (excluding NA).
+
+Definitions:
+
+-   TPT: Proportion of sites currently providing TPT
+
+-   Training: Proportion of sites where anyone attended a formal training on TPT provision
+
+-   Populations for latent TB infection (LTBI) testing and TB preventive treatment
+
+    -   PLHIV: Proportion of sites providing service to People living with HIV
+
+    -   HC: Proportion of sites providing service to household contacts
+
+    -   OPAR: Proportion of sites providing service to other people at risk
