@@ -184,7 +184,7 @@ df1$`HIV Prevalence` <- factor(df1$`HIV Prevalence`,
 ```
 
 ```{r}
-fig1("", pct = TRUE)
+fig1("")
 ```
 
 ### Stratified by high burden countries (all)
@@ -331,7 +331,7 @@ df2$variable <- factor(df2$variable,
 ```
 
 ```{r, fig.cap="Figure 2: Proportion of clinics responding to the questions regarding specific boundaries to initiating patients with HIV on TPT at the clinic. Also, if somebody in the clinic received formal training for TPT."}
-fig2("", pct = T)
+fig2("")
 ```
 
 ### Stratified by high burden countries

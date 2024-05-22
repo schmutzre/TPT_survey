@@ -2292,17 +2292,24 @@ HBC <- read_excel("data_clean/High_burden_countries.xlsx") %>%
          'TB/HIV' = 'TB/HIV HBC',
          'DR-TB' = 'DR-TB HBC')
 
-income <- read_excel("data_clean/income.xlsx") %>% 
-  mutate(Income_group = as.factor(case_when(Income_group == "L" ~ "Low",
-                                            Income_group == "LM" ~ "Low middle",
-                                            Income_group == "UM" ~ "Upper middle",
-                                            Income_group == "H" ~ "High")))
+income <- read_excel("data_raw/income.xlsx") %>% 
+  mutate(Income_group = as.factor(case_when(`Income group` == "Low income" ~ "Low",
+                                            `Income group` == "Lower middle income" ~ "Low middle",
+                                            `Income group` == "Upper middle income" ~ "Upper middle",
+                                            `Income group` == "High income" ~ "High")),
+         country = Code)
 
-HIV_prev <- read_excel("data_clean/hiv_prevakence.xlsx") %>%
+HIV_prev <- read_excel("data_clean/hiv_prev.xlsx") %>% 
+  mutate(Prev_numeric = case_when(Prevalence_perc == "<0.1" ~ 0.1,
+                                  Prevalence_perc == "..." ~ NA,
+                                  TRUE ~ as.numeric(Prevalence_perc))) %>% 
   mutate(Prev_cat = case_when(
-    numeric < 1 ~ "Low (<1%)",
-    numeric <= 5 ~ "Middle (1-5%)",
-    numeric > 5 ~ "High (>5%)")) %>%
+    Prev_numeric < 1 ~ "Low (<1%)",
+    Prev_numeric <= 5 ~ "Middle (1-5%)",
+    Prev_numeric > 5 ~ "High (>5%)",
+    country == "NGA" ~ "Middle (1-5%)",
+    country == "CHN" ~ "Low (<1%)",
+    TRUE ~ NA))%>% 
   mutate(Prev_cat.factor = factor(Prev_cat, 
                                   levels = c("Low (<1%)", "Middle (1-5%)", "High (>5%)"))) %>%
   select(country, Prev_cat.factor)

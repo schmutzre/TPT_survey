@@ -1,3 +1,6 @@
 
 /.Rproj.user/4DA9F536/pcs
 /.Rproj.user
+/data_raw
+*.html
+/data_clean
