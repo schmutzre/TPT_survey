@@ -45,8 +45,7 @@ fig1 <- function(stratifying_var, pct = FALSE) {
       No = sum(category == "No"),
       "Don't know" = sum(category == "Don't know"),
       total = n(),
-      .groups = 'drop'
-    ) %>%
+      .groups = 'drop') %>%
     ungroup() %>%
     mutate(prop_yes = Yes / total,
            prop_yes = round(prop_yes,2)) %>%
@@ -62,8 +61,7 @@ fig1 <- function(stratifying_var, pct = FALSE) {
       No = sum(category == "No"),
       "Don't know" = sum(category == "Don't know"),
       total = n(),
-      .groups = 'drop'
-    ) %>%
+      .groups = 'drop') %>%
     ungroup() %>%
     pivot_longer(cols = c("Yes", "No", "Don't know"), names_to = "response",
                  values_to = "count") %>%
@@ -174,7 +172,7 @@ fig2 <- function(stratifying_var, pct = FALSE) {
     mutate(variable = factor(variable, levels = unique(variable))) %>%
     arrange(variable == "No barriers", prop_yes) %>%
     mutate(variable = factor(variable, levels = unique(variable))) %>% 
-    select(variable, prop_yes, pr_yes)
+    select(variable, prop_yes, pr_yes, response)
   
   df_main <- df2 %>%
     group_by(variable, !!sym(stratifying_var)) %>%
@@ -189,7 +187,7 @@ fig2 <- function(stratifying_var, pct = FALSE) {
                  values_to = "count") %>%
     mutate(response = as.factor(response)) %>% 
     mutate(variable = factor(variable, levels = unique(variable))) %>%
-    left_join(df_order, by = c("variable")) %>% 
+    left_join(df_order, by = c("variable", "response")) %>% 
     arrange(variable == "No barriers", prop_yes) %>%
     mutate(variable = factor(variable, levels = unique(variable)))
   
@@ -306,7 +304,7 @@ fig3 <- function(variable) {
     p <- worldSubsetA %>%
       ggplot(aes(x = long, y = lat)) +
       coord_fixed(1.6) +
-      geom_polygon(aes(fill = prop, group = group), color = "grey25", size = 0.15) +
+      geom_polygon(aes(fill = prop, group = group), color = "grey25", linewidth = 0.15) +
       labs(fill = "", x = "", y = "") +
       theme_bw()+
       theme(legend.key.width = unit(2, "cm"),
@@ -318,7 +316,7 @@ fig3 <- function(variable) {
             panel.grid.major = element_blank(), 
                   panel.grid.minor = element_blank(), 
             plot.title = element_text(size = 10)) +
-      scale_fill_scico(palette = "lapaz", begin = 0, end = 1, na.value = "white", 
+      scale_fill_scico(palette = "roma", begin = 0, end = 1, na.value = "white", 
                        limits = c(0, 1),  
                        oob = scales::oob_squish, labels = scales::label_percent(scale = 100)) +
       labs(x = element_blank(),
@@ -327,6 +325,7 @@ fig3 <- function(variable) {
   return(p)
 
 }
+
 
 #### Figure 5 ------------------------------------------------------------------
 

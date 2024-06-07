@@ -9,33 +9,43 @@ library(tidyr)
 library(ggplot2)
 library(stringr)
 library(wesanderson)  
+library(plotly)
 
-fig1 <- function(data, stratifying_var) {
 
-    if (stratifying_var == "HBC") {
+fig1 <- function(data, stratifying_var, site = NULL) {
+  
+  lvl <- c("Don't know", "No", "Yes")
+  
+  custom_colors <- c(
+    "Don't know" = "#d3d3d3",            
+    "No" = wes_palette("GrandBudapest1")[2],  
+    "Yes" = wes_palette("GrandBudapest2")[4])
+  
+  # Filter the dataframe if site is provided
+  if (!is.null(site)) {
     
-    hbc <- data %>%
-      rowwise() %>%
-      mutate(
-        HBC = {
-          hbc_values <- c_across(c(HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB))
-          hbc_labels <- c("HBC any", "HBC TB", "HBC TB/HIV", "HBC DR TB")
-          paste(hbc_labels[hbc_values == "HBC"], collapse = ",")}) %>%
-      ungroup()
-    
-    duplicate <- hbc %>%
-      filter(str_detect(HBC, ","))  # Select rows with multiple categories
-    
-    duplicated <- duplicate %>%
-      separate_rows(HBC, sep = ",")  # Separate into multiple rows
-    
-    no_duplication <- hbc %>%
-      filter(!str_detect(HBC, ",")) %>%
-      mutate(HBC = ifelse(HBC == "", "Not HBC", HBC))
-    
-    df1 <- bind_rows(duplicated, no_duplication)
-    
+    data %>% filter(record_id == site) %>% 
+      ggplot(aes(y = variable, fill = factor(category, levels = lvl, exclude = NULL))) + 
+      geom_bar(position = "fill") +
+      facet_grid(
+        rows = vars(who_group), 
+        scales = "free_y", 
+        space = "free", 
+        labeller = label_wrap_gen(width = 14)) +
+      scale_fill_manual(
+        values = custom_colors,
+        breaks = c("Yes", "No", "Don't know"),
+        name = NULL) +
+      labs(
+        title = element_blank(), 
+        y = element_blank(), 
+        x = element_blank()) +
+      theme_minimal() +
+      theme(axis.ticks.x = element_blank(),
+            axis.text.x = element_blank())
   }
+  
+  else{
   
   df_main <- data %>%
     group_by(who_group, variable, !!sym(stratifying_var)) %>%
@@ -47,23 +57,24 @@ fig1 <- function(data, stratifying_var) {
       .groups = 'drop'
     ) %>%
     ungroup() %>%
-    mutate(prop_yes = Yes / total) %>%
+    mutate(prop_yes = Yes / total,
+           prop_no = No / total,
+           prop_dont = `Don't know` / total) %>%
     pivot_longer(cols = c("Yes", "No", "Don't know"), names_to = "response",
                  values_to = "count") %>%
-    mutate(response = as.factor(response)) 
+    mutate(response = as.factor(response),
+           prop = case_when(response == "Yes"~ prop_yes,
+                            response == "No" ~ prop_no,
+                            response == "Don't know" ~ prop_dont,
+                            TRUE ~ NA)) 
   
-  lvl <- c("Don't know", "No", "Yes")
-  
-  custom_colors <- c(
-    "Don't know" = "#d3d3d3",            
-    "No" = wes_palette("GrandBudapest1")[2],  
-    "Yes" = wes_palette("GrandBudapest2")[4]
-  )
-  
-  df_main %>% 
+  p <- df_main %>% 
     ggplot(aes(y = reorder(variable, prop_yes), 
                fill = factor(response, levels = lvl, exclude = NULL), 
-               by = variable, weight = count)) +
+               by = variable, weight = count,
+               text = paste("Response:",response, "<br>",
+                            "Count:",count, "<br>",
+                            "Proportion:",round(prop * 100, 0), "%"))) +
     geom_bar(position = "fill") +
     labs(
       title = "", 
@@ -79,14 +90,15 @@ fig1 <- function(data, stratifying_var) {
       labeller = label_wrap_gen(width = 14)) +
     theme(
       axis.text.y = element_text(hjust = 1, size = 12),
-      legend.position = "bottom",
+      legend.position = "none",
       panel.spacing.x = unit(1, "lines"),
         plot.title = element_text(size = 12),
         plot.subtitle = element_text(size = 12),
         axis.title = element_text(size = 12),
         axis.text = element_text(size = 12),
         strip.text = element_text(size = 12),
-      legend.text = element_text(size = 12)) +
+      legend.text = element_text(size = 12),
+      plot.margin = margin(10, 50, 10, 10)) +
     scale_fill_manual(
       values = custom_colors,
       breaks = c("Yes", "No", "Don't know"),
@@ -97,37 +109,55 @@ fig1 <- function(data, stratifying_var) {
       labels = function(x) paste0(format(x * 100, digits = 2)),
       breaks = c(0, 0.5, 1)
     )
-}
+  
+  p = ggplotly(p, tooltip = "text")  
+  
+  nl <- nlevels(factor(df_main[[stratifying_var]]))
+  
+  p$x$layout$yaxis3$domain <- c(0, 11/19)   # 1 block in bottom chunks
+  p$x$layout$yaxis2$domain <- c(11/19, 15/19) # 3 in mid group
+  p$x$layout$yaxis$domain <- c(15/19, 1)    # remaining space
+  
+  p$x$layout$annotations[[2+nl]]$y <- 1 - (1 - 15/19) / 2  # Midpoint of the bottom domain
+  p$x$layout$annotations[[3+nl]]$y <- 15/19 - (15/19 - 11/19) / 2  # Midpoint of the middle domain
+  p$x$layout$annotations[[4+nl]]$y <- 11/19 - (11/19 - 0) / 2  
+  
+  p
+  }
+  
+  }
 
 
 #### Figure 2 ------------------------------------------------------------------
 
-fig2 <- function(data, stratifying_var) {
+fig2 <- function(data, stratifying_var, site = NULL) {
 
-    if (stratifying_var == "HBC") {
+  lvl <- c("No", "Yes")
+  
+  custom_colors <- c(
+    "No" = wes_palette("GrandBudapest1")[2],  
+    "Yes" = wes_palette("GrandBudapest2")[4])
+  
+  # Filter the dataframe if site is provided
+  if (!is.null(site)) {
     
-    hbc <- data %>%
-      rowwise() %>%
-      mutate(
-        HBC = {
-          hbc_values <- c_across(c(HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB))
-          hbc_labels <- c("HBC any", "HBC TB", "HBC TB/HIV", "HBC DR TB")
-          paste(hbc_labels[hbc_values == "HBC"], collapse = ",")}) %>%
-      ungroup()
-    
-    duplicate <- hbc %>%
-      filter(str_detect(HBC, ","))  # Select rows with multiple categories
-    
-    duplicated <- duplicate %>%
-      separate_rows(HBC, sep = ",")  # Separate into multiple rows
-    
-    no_duplication <- hbc %>%
-      filter(!str_detect(HBC, ",")) %>%
-      mutate(HBC = ifelse(HBC == "", "Not HBC", HBC))
-    
-    data <- bind_rows(duplicated, no_duplication)
-    
+    data %>% filter(record_id == site) %>% 
+      ggplot(aes(y = variable, fill = factor(category, levels = lvl, exclude = NULL))) + 
+      geom_bar(position = "fill") +
+      scale_fill_manual(
+        values = custom_colors,
+        breaks = c("Yes", "No", "Don't know"),
+        name = NULL) +
+      labs(
+        title = element_blank(), 
+        y = element_blank(), 
+        x = element_blank()) +
+      theme_minimal() +
+      theme(axis.ticks.x = element_blank(),
+            axis.text.x = element_blank())
   }
+  
+  else{
   
   df_main <- data %>%
     group_by(variable, !!sym(stratifying_var)) %>%
@@ -135,25 +165,24 @@ fig2 <- function(data, stratifying_var) {
       Yes = sum(category == "Yes"),
       No = sum(category == "No"),
       total = n(),
-      .groups = 'drop'
-    ) %>%
+      .groups = 'drop') %>%
     ungroup() %>%
-    mutate(prop_yes = Yes / total) %>%
+    mutate(prop_yes = Yes / total,
+           prop_no = No / total) %>%
     pivot_longer(cols = c("Yes", "No"), names_to = "response",
                  values_to = "count") %>%
-    mutate(response = as.factor(response))
+    mutate(response = as.factor(response),
+           prop = case_when(response == "Yes"~ prop_yes,
+                            response == "No" ~ prop_no,
+                            TRUE ~ NA)) 
   
-  lvl <- c("No", "Yes")
-  
-  custom_colors <- c(
-    "No" = wes_palette("GrandBudapest1")[2],  
-    "Yes" = wes_palette("GrandBudapest2")[4]
-  )
-  
-  df_main %>% 
+  p <- df_main %>% 
     ggplot(aes(y = variable, 
                fill = factor(response, levels = lvl, exclude = NULL), 
-               by = variable, weight = count)) +
+               by = variable, weight = count,
+               text = paste("Response:",response, "<br>",
+                                                         "Count:",count, "<br>",
+                                                         "Proportion:",round(prop * 100, 0), "%"))) +
     geom_bar(position = "fill") +
     labs(
       title = "", 
@@ -165,7 +194,7 @@ fig2 <- function(data, stratifying_var) {
                labeller = label_wrap_gen(width = 14)) +
     theme(
       axis.text.y = element_text(hjust = 1, size = 12),
-      legend.position = "bottom",
+      legend.position = "none",
       panel.spacing.x = unit(1, "lines"),
       plot.title = element_text(size = 12),
       plot.subtitle = element_text(size = 12),
@@ -184,38 +213,18 @@ fig2 <- function(data, stratifying_var) {
       labels = function(x) paste0(format(x * 100, digits = 2)),
       breaks = c(0, 0.5, 1)
     ) 
+  
+  ggplotly(p, tooltip = "text")
+  
+  }
 }
 
-#### Figure 5 ------------------------------------------------------------------
+#### Figure 3 ------------------------------------------------------------------
 
-fig5 <- function(stratifying_var) {
+fig3 <- function(data, stratifying_var, site = NULL) {
 
-    if (stratifying_var == "HBC") {
-    
-    hbc <- df5 %>%
-      rowwise() %>%
-      mutate(
-        HBC = {
-          hbc_values <- c_across(c(HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB))
-          hbc_labels <- c("HBC any", "HBC TB", "HBC TB/HIV", "HBC DR TB")
-          paste(hbc_labels[hbc_values == "HBC"], collapse = ",")}) %>%
-      ungroup()
-    
-    duplicate <- hbc %>%
-      filter(str_detect(HBC, ","))  # Select rows with multiple categories
-    
-    duplicated <- duplicate %>%
-      separate_rows(HBC, sep = ",")  # Separate into multiple rows
-    
-    no_duplication <- hbc %>%
-      filter(!str_detect(HBC, ",")) %>%
-      mutate(HBC = ifelse(HBC == "", "Not HBC", HBC))
-    
-    df5 <- bind_rows(duplicated, no_duplication)
-    
-  }
-  
   lvl <- c("Don't know", "Not offered", "Children", "Adults", "Adults & Children")
+  lvl_rev <- c("Adults & Children", "Adults", "Children", "Not offered", "Don't know")
   
   custom_colors <- c("Adults & Children" = "#8ac0ff",  
                      "Adults" = "#abe1ff",  
@@ -223,33 +232,105 @@ fig5 <- function(stratifying_var) {
                      "Not offered" = "#fde9d8",  
                      "Don't know" = "#d3d3d3")
   
-  trt <- c("9-month isoniazid (9H)", 
-           "3-month isoniazid-rifampicin (3HR)", 
-           "Once-weekly isoniazid-rifapentine\nfor 12 weeks (3HP)", 
-           "6-month isoniazid (6H)")
   
-  df5 %>%
-    select(record_id, '6-month isoniazid (6H)', 
-           'Once-weekly isoniazid-rifapentine for 12 weeks (3HP)',
-           '3-month isoniazid-rifampicin (3HR)',
-           '9-month isoniazid (9H)', !!sym(stratifying_var)) %>%
-    pivot_longer(cols = -c(record_id,!!sym(stratifying_var)), names_to = "treatment", values_to = "status") %>% 
-    mutate(status = as.factor(status),
-           status = forcats::fct_relevel(status, "Adults & Children", "Adults", "Children", "Not offered", "Don't know"),
-           treatment = forcats::fct_relevel(treatment, 
-                                            "9-month isoniazid (9H)", 
-                                            "3-month isoniazid-rifampicin (3HR)", 
-                                            "Once-weekly isoniazid-rifapentine for 12 weeks (3HP)", "6-month isoniazid (6H)")) %>% 
-    ggplot(aes(y = treatment, fill = factor(status, levels = lvl, exclude = NULL))) +
-    geom_bar( position = "fill") +
-    scale_fill_manual(values = custom_colors, na.value = "#a9a9a9", breaks = c("Adults & Children", "Adults", "Children", "Not offered", "Don't know")) +
+  # Filter the dataframe if site is provided
+  if (!is.null(site)) {
+    
+    data %>% filter(record_id == site) %>% 
+      ggplot(aes(y = variable, fill = factor(category, levels = lvl, exclude = NULL))) + 
+      geom_bar(position = "fill") +
+      scale_fill_manual(
+        values = custom_colors,
+        breaks = lvl_rev,
+        name = NULL) +
+      labs(
+        title = element_blank(), 
+        y = element_blank(), 
+        x = element_blank()) +
+      theme_minimal() +
+      theme(axis.ticks.x = element_blank(),
+            axis.text.x = element_blank()) +
+      facet_grid(
+        rows = vars(Regimen), 
+        scales = "free_y", 
+        space = "free")
+    
+  }
+  
+  else{
+  
+  df_main <- data %>% 
+    group_by(variable, !!sym(stratifying_var)) %>% 
+    summarize(
+      Adults = sum(category == "Adults"),
+      Children = sum(category == "Children"),
+      `Adults & Children` = sum(category == "Adults & Children"),
+      `Don't know` = sum(category == "Don't know"),
+      `Not offered` = sum(category == "Not offered"),
+      total = n(),
+      .groups = 'drop') %>% 
+    ungroup() %>%
+    mutate(prop_Adults = Adults / total,
+           prop_Children = Children / total,
+           prop_AdChild = `Adults & Children`/total,
+           prop_dont = `Don't know`/total,
+           prop_none = `Not offered`/total) %>% 
+    pivot_longer(cols = c("Adults", "Children", "Adults & Children", "Don't know", "Not offered"), names_to = "response",
+                 values_to = "count") %>% 
+    mutate(response = as.factor(response),
+           prop = case_when(response == "Adults"~ prop_Adults,
+                            response == "Children" ~ prop_Children,
+                            response == "Adults & Children" ~ prop_AdChild,
+                            response == "Don't know" ~ prop_dont,
+                            TRUE ~ prop_none)) %>% 
+    left_join(data %>% select(variable, Regimen), by = "variable", relationship = "many-to-many") %>% 
+    mutate(variable = str_wrap(variable, width = 40))
+  
+  p <- df_main %>% 
+    ggplot(aes(y = variable, 
+               fill = factor(response, levels = lvl, exclude = NULL),
+               by = variable, weight = count,
+               text = paste("Response:",response, "<br>",
+                            "Count:",count, "<br>",
+                            "Proportion:",round(prop * 100, 0), "%"))) +
+    geom_bar(position = "fill") +
+    labs(
+      title = "", 
+      y = "", 
+      x = "Proportion of clinics (%)") +
     theme_minimal() +
-    labs(y = "", x = "Proportion of clinics (%)", title = "Most used TPT regimens ") +
-    theme(legend.title = element_blank(),
-          legend.position = "bottom",
-          panel.spacing.x = unit(1, "lines")) +
-    scale_x_continuous(labels = function(x) paste0(format(x * 100, digits = 2),""),
-                       breaks = c(0, 0.5, 1)) +
-    scale_y_discrete(labels= trt)+
-    facet_grid(cols = vars(!!sym(stratifying_var)))
+    facet_grid(
+      rows = vars(Regimen), 
+      cols = vars(!!sym(stratifying_var)), 
+      scales = "free_y", 
+      space = "free") +
+    theme(
+      axis.text.y = element_text(hjust = 1, size = 8),
+      legend.position = "none",
+      panel.spacing.x = unit(1, "lines"),
+      legend.key.size = unit(0.3, "cm"),
+      plot.margin = margin(10, 20, 10, 30) ) + 
+    scale_fill_manual(
+      values = custom_colors,
+      breaks = lvl_rev,
+      name = NULL) +
+    scale_x_continuous(
+      expand = c(0,0), 
+      labels = function(x) paste0(format(x * 100, digits = 2)),
+      breaks = c(0, 0.25, 0.5, 0.75,  1))+
+    geom_vline(xintercept = 0.5, linetype = "dashed", color = "white")
+  
+  p = ggplotly(p, tooltip = "text")
+  
+  nl <- nlevels(factor(df_main[[stratifying_var]]))
+  
+  p$x$layout$yaxis2$domain <- c(0, 1/2)   # 1 block in bottom chunks
+  p$x$layout$yaxis$domain <- c(1/2, 1) # 3 in mid group
+
+  p$x$layout$annotations[[2+nl]]$y <- 1 - (1 - 1/2) / 2  # Midpoint of the top domain
+  p$x$layout$annotations[[3+nl]]$y <- 1/2 - (1 - 1/2) / 2  # Midpoint of the middle domain
+  
+  p
+  
+  }
 }

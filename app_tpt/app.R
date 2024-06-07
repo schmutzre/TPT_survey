@@ -6,54 +6,176 @@ library(tidyverse)
 library(RColorBrewer)
 library(scales)
 library(lattice)
+library(shinyBS)
+library(plotly)
+library(shinythemes)
 
 # Source the external plots.R script
 source("utils/plots.R")
 # Load data
 dataSites <- readRDS("data/data.rds")
+
 df1 <- readRDS("data/df1.rds")
 df2 <- readRDS("data/df2.rds")
+df3 <- readRDS("data/df3.rds")
 
 # Choices for drop-downs
-vars <- c("None" = "",
-  "Level of integration",
-  "Income Level",
-  "HIV Prevalence"
-)
+vars <- c("None", 
+          "Region",
+          "Level of integrated TB/HIV services",
+          "Income Level",
+          "HIV Prevalence",
+          "High burden country")
 
-####
 
 ui <- navbarPage("TPT", id="nav",
-                 tabPanel("Interactive map",
+                 theme = shinytheme("readable"),
+                 tabPanel("Map",
                           div(class="outer",
-                              
                               tags$head(
-                                includeCSS("styles.css")
+                                includeCSS("styles.css"),
+                                tags$style(HTML("
+                                  table {
+                                    width: 100%;
+                                    border-collapse: collapse;
+                                    font-family: Arial, sans-serif;
+                                  }
+                                  th, td {
+                                    padding: 12px;
+                                    text-align: left;
+                                    border-bottom: 1px solid #ddd;
+                                  }
+                                  th {
+                                    background-color: #f2f2f2;
+                                    color: #333;
+                                  }
+                               tr:hover {
+                                    background-color: #f5f5f5;
+                                  }
+                                  .info-box {
+                                    display: flex;
+                                    align-items: center;
+                                    background-color: #f9f9f9;
+                                    border: 1px solid #ddd;
+                                    border-radius: 5px;
+                                    padding: 10px;
+                                    margin-bottom: 15px;
+                                    color: #333;
+                                  }
+                                  .info-box-icon {
+                                    font-size: 24px;
+                                    margin-right: 10px;
+                                    color: #5bc0de;
+                                  }
+                                  .info-box-text {
+                                    font-size: 16px;
+                                    font-weight: bold;
+                                  }
+                      
+                                "))
                               ),
-                              
                               leafletOutput("map", width="100%", height="100%"),
-                              
                               absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
                                             draggable = TRUE, top = 60, left = "auto", right = 20, bottom = "auto",
-                                            width = 630, height = "auto",
+                                            width = 300, height = "auto",
                                             div(class = "control-wrapper",
-                                                selectInput("plotChoice", "Figure:",
-                                                            choices = list("Population eligible for TPT" = "fig1", "Barriers for TPT" = "fig2")),
-                                                selectInput("color", "Stratifying variable:", vars),
-                                                actionButton("resetBtn", "Reset Plot"),
+                                                selectInput("color", "Coloring:", vars),
                                                 style = "display: flex; align-items: center; justify-content: space-between;"
                                             ),
-                                            uiOutput("plotOutput"))
-                          ),
-                          
-                          #tags$div(id="cite",
-                                #   'Data compiled for ', tags$em('Coming Apart: The State of White America, 1960–2010'), ' by Charles Murray (Crown Forum, 2012).'
-                         # )
+                                            actionButton("showIntro", "Show Introduction")  # Add button to show modal
+                              )
+                          )
+                 ),
+                 tabPanel("People eligible for TPT",
+                          fluidPage(
+          
+                            sidebarLayout(
+                              sidebarPanel(
+                                selectInput("colorPlot1", "Stratifying variable:", vars),
+                                uiOutput("text1")  # Use uiOutput here
+                              ),
+                              mainPanel(
+                                div(class = "info-box",
+                                    div(class = "info-box-icon",
+                                        icon("info-circle")),
+                                    div(class = "info-box-text",
+                                        "Hover over the plot to see details about the responses.")
+                                ),
+                                plotlyOutput("fig1", height = 600)
+                              )
+                            )
+                          )
+                 ),
+                 tabPanel("Barriers for TPT",
+                          fluidPage(
+                            sidebarLayout(
+                              sidebarPanel(
+                                selectInput("colorPlot2", "Stratifying variable:", vars),
+                                uiOutput("text2")
+                              ),
+                              mainPanel(
+                                div(class = "info-box",
+                                    div(class = "info-box-icon",
+                                        icon("info-circle")),
+                                    div(class = "info-box-text",
+                                        "Hover over the plot to see details about the responses.")
+                                ),
+                                plotlyOutput("fig2", height = 600)
+                              )
+                            )
+                          )
+                 ),
+                 tabPanel("TPT Treatment regimens",
+                          fluidPage(
+                            sidebarLayout(
+                              sidebarPanel(
+                                selectInput("colorPlot3", "Stratifying variable:", vars),
+                                uiOutput("text3")
+                              ),
+                              mainPanel(
+                                div(class = "info-box",
+                                    div(class = "info-box-icon",
+                                        icon("info-circle")),
+                                    div(class = "info-box-text",
+                                        "Hover over the plot to see details about the responses.")
+                                ),
+                                plotlyOutput("fig3", height = 600)
+                              )
+                            )
+                          )
                  )
 )
 
 
+#### Server Code
+
 server <- function(input, output, session) {
+  
+  # Function to show the modal dialog
+  showIntroModal <- function() {
+    showModal(modalDialog(
+      title = "Welcome to the TPT Survey App",
+      tags$p("Provision of TB preventive therapy (TPT) is recommended by WHO to achieve the End TB Strategy targets. We determined the access to and use of TPT services at HIV clinics in low- and middle-income countries (LMICs), three years after the launch of updated WHO guidance on TPT use."),
+      tags$p("This application allows you to explore the survey data in detail. The main functionalities include:"),
+      tags$ul(
+        tags$li("Map: Use the map to select individual sites by clicking on them. Once a site is selected, a pop-up will give you the opportunity to display detailed information about the characteristics of the clinic and about TPT provision at that clinic. The map also allows you to color the sites by different variables such as 'Level of integration', 'Income Level', and 'HIV Prevalence'."),
+        tags$li("People eligible for TPT: This page provides a plot displaying an aggregated overview of the eligibility of TPT for different groups at risk."),
+        tags$li("Barriers: This page displays a plot of the barriers to TPT implementation at various sites."),
+        tags$li("Treatment regimens: This page shows the different treatment regimens used for TPT across the sites.")
+      ),
+      tags$p("We hope this application helps you gain valuable insights into the implementation and challenges of TPT services in LMICs."),
+      easyClose = TRUE,
+      footer = modalButton("Close")
+    ))
+  }
+  
+  # Show the modal when the app starts
+  showIntroModal()
+  
+  # Show the modal when the button is clicked
+  observeEvent(input$showIntro, {
+    showIntroModal()
+  })
   
   # Reactive value to store the selected record_id
   selectedRecordId <- reactiveVal(NULL)
@@ -77,47 +199,6 @@ server <- function(input, output, session) {
     }
   })
   
-  observeEvent(input$resetBtn, {
-    selectedRecordId(NULL)  # Reset the selection when the reset button is clicked
-  })
-  
-  output$plotOutput <- renderUI({
-    if (input$plotChoice == "fig1") {
-      plotOutput("fig1", height = 600)
-    } else {
-      plotOutput("fig2", height = 600)
-    }
-  })
-  
-  # Plot that updates based on interaction
-  output$fig1 <- renderPlot({
-    # Decide which data to use based on selectedRecordId
-    if (is.null(selectedRecordId())) {
-      dataToPlot <- df1
-    } else {
-      dataToPlot <- df1 %>% filter(record_id == selectedRecordId())
-    }
-    # Check if a selection has been made in the dropdown or pass an empty string if not
-    strat_var <- ifelse(is.null(input$color) || input$color == "", "", input$color)
-    
-    # Call fig1 with the appropriate data
-    fig1(dataToPlot, strat_var)
-  })
-  
-  output$fig2 <- renderPlot({
-    # Decide which data to use based on selectedRecordId
-    if (is.null(selectedRecordId())) {
-      dataToPlot <- df2
-    } else {
-      dataToPlot <- df2 %>% filter(record_id == selectedRecordId())
-    }
-    # Check if a selection has been made in the dropdown or pass an empty string if not
-    strat_var <- ifelse(is.null(input$color) || input$color == "", "", input$color)
-    
-    # Call fig1 with the appropriate data
-    fig2(dataToPlot, strat_var)
-  })
-  
   # This observer is responsible for maintaining the circles and legend,
   # according to the variables the user has chosen to map to color and size.
   observe({
@@ -128,7 +209,7 @@ server <- function(input, output, session) {
                               ifelse(zoom < 11, 10000, 
                                      ifelse(zoom < 15, 1000, 500))))
       
-      if (input$color == "") {
+      if (input$color == "None") {
         # Set all points to black if no stratifying variable is selected
         leafletProxy("map", data = dataSites) %>%
           clearShapes() %>%
@@ -151,37 +232,124 @@ server <- function(input, output, session) {
     }
   })
   
-
-  
-
-  # Show a popup at the given location
-  showSitePopup <- function(record_id, lat, lng) {
-    selectedSite <- dataSites[dataSites$record_id == record_id,]
-    content <- as.character(tagList(
-      tags$strong(HTML(sprintf("%s, %s",
-                               selectedSite$name, selectedSite$Country))), tags$br(),
-      sprintf("TPT provided in-house or at co-located TB clinic: %s", selectedSite$`TPT currently provided in-house or at co-located TB clinic`), tags$br(),
-      sprintf("TB treatment for PLHIV: %s", selectedSite$`TB treatment for PLHIV`), tags$br(),
-      sprintf("Level of integration: %s", selectedSite$`Level of integration`), tags$br(),
-      sprintf("Anyone attended a formal training on TPT provision: %s", selectedSite$`Anyone attended a formal training on TPT provision`), tags$br(),
-
-    ))
-    leafletProxy("map", data = dataSites) %>% addPopups(lng, lat, content, layerId = record_id)
-  }
-
-  # When map is clicked, show a popup with city info
+  # When map is clicked, show a popup with site info and open a modal with detailed plot
   observe({
     leafletProxy("map") %>% clearPopups()
     event <- input$map_shape_click
-    print(event)
     if (is.null(event))
       return()
     
     isolate({
-      showSitePopup(event$id, event$lat, event$lng)
+      showModal(modalDialog(
+        selectInput("infoType", "Select Information Type for this clinic", choices = c("Site Characteristics", "People eligible for TPT", "Barriers for TPT", "Treatments offered")),
+        uiOutput("siteDetails"),
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
     })
   })
   
+  # Render the selected information based on dropdown selection
+  output$siteDetails <- renderUI({
+    req(selectedRecordId())
+    
+    if (input$infoType == "Site Characteristics") {
+      selectedSite <- dataSites[dataSites$record_id == selectedRecordId(),]
+      tagList(
+        tags$table(style = "width:100%; border-collapse: collapse;",
+                   tags$tbody(
+                     tags$tr(
+                       tags$td("Population the center serves", style = "border: 1px solid black; padding: 5px;"),
+                       tags$td(selectedSite$`Population the center serves`, style = "border: 1px solid black; padding: 5px;")
+                     ),
+                     tags$tr(
+                       tags$td("Facility location", style = "border: 1px solid black; padding: 5px;"),
+                       tags$td(selectedSite$`Facility location`, style = "border: 1px solid black; padding: 5px;")
+                     ),
+                     tags$tr(
+                       tags$td("Level of integrated TB/HIV services", style = "border: 1px solid black; padding: 5px;"),
+                       tags$td(selectedSite$`Level of integrated TB/HIV services`, style = "border: 1px solid black; padding: 5px;")
+                     ),
+                     tags$tr(
+                       tags$td("Anyone attended a formal training on TPT provision", style = "border: 1px solid black; padding: 5px;"),
+                       tags$td(selectedSite$`Anyone attended a formal training on TPT provision`, style = "border: 1px solid black; padding: 5px;")
+                     ),
+                     tags$tr(
+                       tags$td("Facility level of care", style = "border: 1px solid black; padding: 5px;"),
+                       tags$td(selectedSite$`Facility level of care`, style = "border: 1px solid black; padding: 5px;")
+                     )
+                   )
+        )
+      )
+    } else if (input$infoType == "People eligible for TPT") {
+      renderPlot({
+        fig1(df1, "", site = selectedRecordId())
+      })
+    } else if (input$infoType == "Barriers for TPT") {
+      renderPlot({
+        fig2(df2, "", site = selectedRecordId())
+      })
+    } else if (input$infoType == "Treatments offered") {
+      renderPlot({
+        fig3(df3, "", site = selectedRecordId())
+      })
+    }
+  })
+  
+  ## Data Visualization ########################################
+  
+  # Plot for "People eligible for TPT" tab
+  output$fig1 <- renderPlotly({
+    strat_var <- ifelse(input$colorPlot1 == "None", "", input$colorPlot1)
+    fig1(df1, strat_var)
+  })
+  
+  # Plot for "Barriers" tab
+  output$fig2 <- renderPlotly({
+    strat_var <- ifelse(input$colorPlot2 == "None", "", input$colorPlot2)
+    fig2(df2, strat_var)
+  })
+  
+  # Plot for "Treatment regimens" tab
+  output$fig3 <- renderPlotly({
+    cat("Rendering fig3\n")
+    strat_var <- ifelse(input$colorPlot3 == "None", "", input$colorPlot3)
+    fig3(df3, strat_var)
+  })
+  
+  # Text output for "People eligible for TPT" tab
+  output$text1 <- renderUI({
+    HTML("
+    <p>Identifying populations (unlikely to have active TB) eligible to receive TPT at HIV clinic or colocated TB clinic. Since 2020, the WHO updated guidance on TB prevention recommends TPT for three main groups of individuals:</p>
+    <ol>
+      <li>PLWH unlikely to have active TB, irrespective of their age and degree of immunosuppression, even if LTBI testing is unavailable;</li>
+      <li>Children or high-risk household contacts exposed to a person with active TB, regardless of their HIV status;</li>
+      <li>Other people at risk, including people on anti-TNF immunosuppressive therapy or on dialysis, prisoners or health care workers in high TB burden settings.</li>
+    </ol>
+    <p>Yet, the implementation of TPT in practice remains largely unknown, especially in countries with high TB and HIV incidences. Here, we examined the access to and use of TPT in a global sample of HIV care clinics in LMICs. Specifically, we focused on the implementation of the WHO recommendations to provide TPT to high-risk populations, and determined the availability of different TPT regimens.</p>
+  ")
+  })
+  
+  
+  # Text output for "Barriers" tab
+  output$text2 <- renderUI({
+    HTML("
+    <p>Identifying barriers preventing clinics to provide TPT:</p>
+    
+    <p> We should add some more informations here.</p>
+  ")
+  })
+  
+  # Text output for "Treatment regimens" tab
+  output$text3 <- renderUI({
+    HTML("
+    <p>Identifying the frequency of treatment use:</p>
+    
+    <p> The clinical efficacy and cost-effectiveness of TPT is established, either using longer 6–12-month isoniazid-based TPT, or shorter 1–3-month rifamycin-containing regimens. Short course TPT regimens have the advantage to be less toxic than longer isoniazid monotherapy, thus decreasing adverse events and improving treatment completion. <p>
+    <p> We should add some more informations here.</p>
+  ")
+  })
 }
 
 shinyApp(ui = ui, server = server)
+
