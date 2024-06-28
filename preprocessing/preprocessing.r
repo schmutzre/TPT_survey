@@ -2331,7 +2331,7 @@ data2 <- data  %>%
       region_exact == "CN" ~ "Latin America",
       region_exact %in% c("CA", "EA", "SA", "WA") ~ "Africa")),
     tbhiv_integration.factor = case_when(record_id %in% c("102", "418") ~ "Partial integration (either TB diagnostics or TB treatment available under same roof or same facility than HIV care)",
-                                         record_id == "523" ~ "Not integrated",
+                                         record_id == "523" ~ "Not integrated", ## checked these manually (responded 'other')
                                          TRUE ~ tbhiv_integration.factor),
     tbhiv_integration.factor = fct_recode(
       tbhiv_integration.factor,
@@ -2349,4 +2349,3 @@ data2 <- data  %>%
   filter(Income_group %in% c("Low", "Low middle", "Upper middle")) 
 
 saveRDS(data2, "data_clean/data_clean.rds")
-

@@ -65,3 +65,15 @@ df3.app <- readRDS("data_clean/df5.rds") %>%
   filter(variable != "Regimens for MDR-TB exposure" & variable != "Other")
 
 saveRDS(df3.app, "app_tpt/data/df3.rds")
+
+#### Table 1 -------------------------------------------------------------------
+
+df1.table <- df1.app %>%
+  group_by(who_group) %>%
+  summarise(details = paste0("<tr><td>", record_id, "</td><td>", category, "</td></tr>", collapse = "")) %>%
+  ungroup() %>% 
+  mutate(details = paste0("<tr><th colspan='2'>", who_group, "</th></tr>", details)) %>%
+  summarise(table = paste(details, collapse = "")) %>%
+  .$table %>%
+  paste(collapse = "")
+df1.table

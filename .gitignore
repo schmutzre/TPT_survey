@@ -4,3 +4,16 @@
 /data_raw
 *.html
 /data_clean
+*.rds
+*.rds
+*.rds
+*.docx
+*.png
+*.Rproj
+*.dcf
+analysis/.Rhistory
+.Rhistory
+.RData
+.DS_Store
+app_tpt/data/df2.rds
+app_tpt/.DS_Store

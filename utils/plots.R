@@ -92,12 +92,20 @@ fig1 <- function(stratifying_var, pct = FALSE) {
       cols = vars(!!sym(stratifying_var)), 
       scales = "free_y", 
       space = "free", 
-      labeller = label_wrap_gen(width = 14)
+      labeller = label_wrap_gen(width = 12)
     ) +
     theme(
-      axis.text.y = element_text(hjust = 1, size = 8),
+      axis.text.y = element_text(hjust = 1, size = 10),
       legend.position = "bottom",
-      panel.spacing.x = unit(1, "lines")) +
+      panel.spacing.x = unit(4, "lines"),
+      text = element_text(size = 10),   # Set the base font size here
+      axis.title = element_text(size = 10),
+      axis.text = element_text(size = 10),
+      plot.title = element_text(size = 10),
+      legend.title = element_text(size = 10),
+      legend.text = element_text(size = 10),
+      strip.text.x = element_text(size = 10),  # Set facet label size for columns
+      strip.text.y = element_text(size = 10) ) +
     scale_fill_manual(
       values = custom_colors,
       breaks = c("Yes", "No", "Don't know"),
@@ -106,21 +114,36 @@ fig1 <- function(stratifying_var, pct = FALSE) {
     scale_x_continuous(
       expand = c(0,0), 
       labels = function(x) paste0(format(x * 100, digits = 2)),
-      breaks = c(0, 0.25, 0.5, 0.75,  1))+
-    geom_vline(xintercept = 0.5, linetype = "dashed", color = "white")
+      breaks = c(0, 0.25, 0.5, 0.75,  1))
+    
   
   if(pct == FALSE){
+    
+    p <- p + geom_vline(xintercept = 0.5, linetype = "dashed", color = "white")
     
     return(p)
     
   }
   
-  else{
+  else {
+    prop1 <- df1 %>% 
+      group_by(who_group, variable) %>% 
+      summarize(yes_sum = sum(category == "Yes"),
+                total = n(),
+                prop = round(yes_sum / total, 2)) %>% 
+      ungroup() %>% 
+      group_by(who_group) %>% 
+      summarize(mean_prop = mean(prop, na.rm = TRUE)) %>% 
+      ungroup()
     
-    p <- p + geom_text(aes(label = scales::percent(prop_yes), y = variable, x = prop_yes-0.05),
+    df_main <- df_main %>% 
+      left_join(prop1, by = "who_group")
+    
+    p <- p + geom_text(aes(label = scales::percent(prop_yes), y = variable, x = prop_yes - 0.05),
                        data = df_main %>% filter(response == "Yes"),
                        color = "white", 
-                       size = 2.8) 
+                       size = 2.8) +
+      geom_vline(aes(xintercept = mean_prop), data = prop1, linetype = "dotted", color = "white")
     
     return(p)
   }
@@ -210,10 +233,17 @@ fig2 <- function(stratifying_var, pct = FALSE) {
     theme_minimal() +
     facet_grid(cols = vars(!!sym(stratifying_var))) +
     theme(
-      axis.text.y = element_text(hjust = 1, size = 8),
+      axis.text.y = element_text(hjust = 1, size = 10),
       legend.position = "bottom",
       panel.spacing.x = unit(1, "lines"),
-      plot.margin = margin(t = 5, r = 10, b = 5, l = 5, unit = "pt")) +
+      plot.margin = margin(t = 5, r = 10, b = 5, l = 5, unit = "pt"),
+      text = element_text(size = 10),   # Set the base font size here
+      axis.title = element_text(size = 10),
+      axis.text = element_text(size = 10),
+      plot.title = element_text(size = 10),
+      legend.title = element_text(size = 10),
+      legend.text = element_text(size = 10)
+      ) +
     scale_fill_manual(
       values = custom_colors,
       breaks = c("Yes", "No", "Don't know", "Not available"),
@@ -307,20 +337,31 @@ fig3 <- function(variable) {
       geom_polygon(aes(fill = prop, group = group), color = "grey25", linewidth = 0.15) +
       labs(fill = "", x = "", y = "") +
       theme_bw()+
-      theme(legend.key.width = unit(2, "cm"),
-            axis.text = element_blank(),
-            axis.ticks = element_blank(),
-            legend.margin = margin(t = 0, b = 0, unit = "pt"),
-            legend.position = c(0.5, 0.7),
-            legend.box.margin = margin(t = 0, b = 0, unit = "pt"),
-            panel.grid.major = element_blank(), 
-                  panel.grid.minor = element_blank(), 
-            plot.title = element_text(size = 10)) +
-      scale_fill_scico(palette = "roma", begin = 0, end = 1, na.value = "white", 
-                       limits = c(0, 1),  
-                       oob = scales::oob_squish, labels = scales::label_percent(scale = 100)) +
-      labs(x = element_blank(),
-           y = element_blank())
+      theme(
+        legend.key.width = unit(2, "cm"),
+        axis.text = element_blank(),         # Remove axis text
+        axis.ticks = element_blank(),
+        legend.margin = margin(t = 0, b = 0, unit = "pt"),
+        legend.position = c(0.5, 0.7),
+        legend.box.margin = margin(t = 0, b = 0, unit = "pt"),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        text = element_text(size = 10),   # Set the base font size here
+        axis.title = element_text(size = 10),
+        plot.title = element_text(size = 10),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 10)
+      ) +
+      scale_fill_scico(
+        palette = "roma", begin = 0, end = 1, na.value = "white", 
+        limits = c(0, 1),
+        oob = scales::oob_squish, labels = scales::label_percent(scale = 100),
+        guide = guide_colorbar(
+          barwidth = 1, barheight = 10, title.position = "top",
+          title.hjust = 0.5, label.hjust = 0.5, frame.colour = "black", ticks = TRUE
+        )
+      ) +
+      labs(x = element_blank(), y = element_blank())
     
   return(p)
 
@@ -381,10 +422,18 @@ fig5 <- function(stratifying_var) {
       space = "free", 
       labeller = label_wrap_gen(width = 14)) +
     theme(
-      axis.text.y = element_text(hjust = 1, size = 8),
+      axis.text.y = element_text(hjust = 1, size = 10),
       legend.position = "bottom",
       panel.spacing.x = unit(1, "lines"),
-      legend.key.size = unit(0.3, "cm")) +
+      legend.key.size = unit(0.3, "cm"),
+      text = element_text(size = 10),   # Set the base font size here
+      axis.title = element_text(size = 10),
+      axis.text = element_text(size = 10),
+      plot.title = element_text(size = 10),
+      legend.title = element_text(size = 10),
+      legend.text = element_text(size = 10),
+      strip.text.x = element_text(size = 10),  # Set facet label size for columns
+      strip.text.y = element_text(size = 10)) +
     scale_fill_manual(
       values = custom_colors,
       breaks = lvl_rev,
@@ -393,5 +442,7 @@ fig5 <- function(stratifying_var) {
       expand = c(0,0), 
       labels = function(x) paste0(format(x * 100, digits = 2)),
       breaks = c(0, 0.25, 0.5, 0.75,  1))+
-    geom_vline(xintercept = 0.5, linetype = "dashed", color = "white")
+    geom_vline(xintercept = 0.5, linetype = "dashed", color = "white")+
+    guides(fill = guide_legend(nrow = 2, byrow = TRUE))  # Split legend into 2 rows
+  
 }

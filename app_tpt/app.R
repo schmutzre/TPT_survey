@@ -27,7 +27,6 @@ vars <- c("None",
           "HIV Prevalence",
           "High burden country")
 
-
 ui <- navbarPage("TPT", id="nav",
                  theme = shinytheme("readable"),
                  tabPanel("Map",
@@ -49,7 +48,7 @@ ui <- navbarPage("TPT", id="nav",
                                     background-color: #f2f2f2;
                                     color: #333;
                                   }
-                               tr:hover {
+                                  tr:hover {
                                     background-color: #f5f5f5;
                                   }
                                   .info-box {
@@ -71,13 +70,12 @@ ui <- navbarPage("TPT", id="nav",
                                     font-size: 16px;
                                     font-weight: bold;
                                   }
-                      
                                 "))
                               ),
                               leafletOutput("map", width="100%", height="100%"),
                               absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
-                                            draggable = TRUE, top = 60, left = "auto", right = 20, bottom = "auto",
-                                            width = 300, height = "auto",
+                                            draggable = TRUE, top = "10%", left = "auto", right = "2%", bottom = "auto",
+                                            width = "20%", maxWidth = "300px", height = "auto",
                                             div(class = "control-wrapper",
                                                 selectInput("color", "Coloring:", vars),
                                                 style = "display: flex; align-items: center; justify-content: space-between;"
@@ -88,7 +86,6 @@ ui <- navbarPage("TPT", id="nav",
                  ),
                  tabPanel("People eligible for TPT",
                           fluidPage(
-          
                             sidebarLayout(
                               sidebarPanel(
                                 selectInput("colorPlot1", "Stratifying variable:", vars),
@@ -184,23 +181,13 @@ server <- function(input, output, session) {
   
   # Create the map
   output$map <- renderLeaflet({
-    leaflet() %>%
+    leaflet(dataSites) %>%
       addTiles() %>%
       setView(lng = 17.5, lat = 0, zoom = 3)
   })
   
-  # Observe map click events
-  observeEvent(input$map_shape_click, {
-    clickedId <- input$map_shape_click$id
-    if (!is.null(clickedId) && clickedId %in% dataSites$record_id) {
-      selectedRecordId(clickedId)
-    } else {
-      selectedRecordId(NULL)  # Explicitly reset on non-specific area click
-    }
-  })
-  
   # This observer is responsible for maintaining the circles and legend,
-  # according to the variables the user has chosen to map to color and size.
+  # according to the variables the user has chosen to map to color.
   observe({
     if (!is.null(input$color)) {
       zoom <- input$map_zoom
@@ -214,7 +201,8 @@ server <- function(input, output, session) {
         leafletProxy("map", data = dataSites) %>%
           clearShapes() %>%
           addCircles(~longitude, ~latitude, radius=radius, layerId=~record_id,
-                     stroke=FALSE, fillOpacity=0.6, fillColor="black")
+                     stroke=FALSE, fillOpacity=0.6, fillColor="black",
+                     label = ~paste(name, country))
       } else {
         # Check if the column exists and if it's a factor, then color accordingly
         if (!is.null(dataSites[[input$color]]) && is.factor(dataSites[[input$color]])) {
@@ -224,13 +212,59 @@ server <- function(input, output, session) {
           leafletProxy("map", data = dataSites) %>%
             clearShapes() %>%
             addCircles(~longitude, ~latitude, radius=radius, layerId=~record_id,
-                       stroke=FALSE, fillOpacity=0.6, fillColor=pal(colorData)) %>%
+                       stroke=FALSE, fillOpacity=0.6, fillColor=pal(colorData),
+                       label = ~paste(name, country)) %>%
             addLegend("bottomleft", pal=pal, values=colorData, title=input$color,
                       layerId="colorLegend")
         }
       }
     }
   })
+  
+  # Observe map click events
+  observeEvent(input$map_shape_click, {
+    clickedId <- input$map_shape_click$id
+    if (!is.null(clickedId) && clickedId %in% dataSites$record_id) {
+      selectedSite <- dataSites %>% filter(record_id == clickedId)
+      selectedRecordId(clickedId)
+      output$siteInfo <- renderUI({
+        tagList(
+          h4("Site Information"),
+          tags$p(paste("Name:", selectedSite$name)),
+          tags$p(paste("Country:", selectedSite$country))
+        )
+      })
+    } else {
+      selectedRecordId(NULL)  # Explicitly reset on non-specific area click
+    }
+  })
+  
+  # Helper function to render grouped tables
+  renderGroupedTable <- function(data, group_var, question_var, answer_var) {
+    data[[answer_var]] <- as.character(data[[answer_var]]) # Ensure category column is character
+    group_levels <- unique(data[[group_var]])
+    html <- ""
+    
+    for (group in group_levels) {
+      group_data <- data[data[[group_var]] == group, ]
+      html <- paste0(html, "<tr><th colspan='2'>", group, "</th></tr>")
+      for (i in 1:nrow(group_data)) {
+        html <- paste0(html, "<tr><td>", group_data[i, question_var], "</td><td>", group_data[i, answer_var], "</td></tr>")
+      }
+    }
+    html
+  }
+  
+  # Helper function to render ungrouped tables
+  renderUngroupedTable <- function(data, question_var, answer_var) {
+    data[[answer_var]] <- as.character(data[[answer_var]]) # Ensure category column is character
+    data[[question_var]] <- as.character(data[[question_var]]) # Ensure category column is character
+    html <- ""
+    for (i in 1:nrow(data)) {
+      html <- paste0(html, "<tr><td>", data[i, question_var], "</td><td>", data[i, answer_var], "</td></tr>")
+    }
+    html
+  }
   
   # When map is clicked, show a popup with site info and open a modal with detailed plot
   observe({
@@ -241,6 +275,10 @@ server <- function(input, output, session) {
     
     isolate({
       showModal(modalDialog(
+        title = tagList(
+          tags$p(paste("Name:", dataSites[dataSites$record_id == event$id, "name"])),
+          tags$p(paste("Country:", dataSites[dataSites$record_id == event$id, "country"]))
+        ),
         selectInput("infoType", "Select Information Type for this clinic", choices = c("Site Characteristics", "People eligible for TPT", "Barriers for TPT", "Treatments offered")),
         uiOutput("siteDetails"),
         easyClose = TRUE,
@@ -254,45 +292,45 @@ server <- function(input, output, session) {
     req(selectedRecordId())
     
     if (input$infoType == "Site Characteristics") {
-      selectedSite <- dataSites[dataSites$record_id == selectedRecordId(),]
+      selectedSite <- dataSites %>% filter(record_id == selectedRecordId())
+      siteData <- data.frame(
+        variable = c("Population the center serves", "Facility location", "Level of integrated TB/HIV services", "Anyone attended a formal training on TPT provision", "Facility level of care"),
+        category = c(selectedSite$`Population the center serves`, selectedSite$`Facility location`, selectedSite$`Level of integrated TB/HIV services`, selectedSite$`Anyone attended a formal training on TPT provision`, selectedSite$`Facility level of care`)
+      )
       tagList(
         tags$table(style = "width:100%; border-collapse: collapse;",
                    tags$tbody(
-                     tags$tr(
-                       tags$td("Population the center serves", style = "border: 1px solid black; padding: 5px;"),
-                       tags$td(selectedSite$`Population the center serves`, style = "border: 1px solid black; padding: 5px;")
-                     ),
-                     tags$tr(
-                       tags$td("Facility location", style = "border: 1px solid black; padding: 5px;"),
-                       tags$td(selectedSite$`Facility location`, style = "border: 1px solid black; padding: 5px;")
-                     ),
-                     tags$tr(
-                       tags$td("Level of integrated TB/HIV services", style = "border: 1px solid black; padding: 5px;"),
-                       tags$td(selectedSite$`Level of integrated TB/HIV services`, style = "border: 1px solid black; padding: 5px;")
-                     ),
-                     tags$tr(
-                       tags$td("Anyone attended a formal training on TPT provision", style = "border: 1px solid black; padding: 5px;"),
-                       tags$td(selectedSite$`Anyone attended a formal training on TPT provision`, style = "border: 1px solid black; padding: 5px;")
-                     ),
-                     tags$tr(
-                       tags$td("Facility level of care", style = "border: 1px solid black; padding: 5px;"),
-                       tags$td(selectedSite$`Facility level of care`, style = "border: 1px solid black; padding: 5px;")
-                     )
+                     HTML(renderUngroupedTable(siteData, "variable", "category"))
                    )
         )
       )
     } else if (input$infoType == "People eligible for TPT") {
-      renderPlot({
-        fig1(df1, "", site = selectedRecordId())
-      })
+      selectedInfo <- df1 %>% filter(record_id == selectedRecordId())
+      tagList(
+        tags$table(style = "width:100%; border-collapse: collapse;",
+                   tags$tbody(
+                     HTML(renderGroupedTable(selectedInfo, "who_group", "variable", "category"))
+                   )
+        )
+      )
     } else if (input$infoType == "Barriers for TPT") {
-      renderPlot({
-        fig2(df2, "", site = selectedRecordId())
-      })
+      selectedInfo <- df2 %>% filter(record_id == selectedRecordId())
+      tagList(
+        tags$table(style = "width:100%; border-collapse: collapse;",
+                   tags$tbody(
+                     HTML(renderUngroupedTable(selectedInfo, "variable", "category"))
+                   )
+        )
+      )
     } else if (input$infoType == "Treatments offered") {
-      renderPlot({
-        fig3(df3, "", site = selectedRecordId())
-      })
+      selectedInfo <- df3 %>% filter(record_id == selectedRecordId())
+      tagList(
+        tags$table(style = "width:100%; border-collapse: collapse;",
+                   tags$tbody(
+                     HTML(renderUngroupedTable(selectedInfo, "variable", "category"))
+                   )
+        )
+      )
     }
   })
   
@@ -312,7 +350,6 @@ server <- function(input, output, session) {
   
   # Plot for "Treatment regimens" tab
   output$fig3 <- renderPlotly({
-    cat("Rendering fig3\n")
     strat_var <- ifelse(input$colorPlot3 == "None", "", input$colorPlot3)
     fig3(df3, strat_var)
   })
@@ -329,7 +366,6 @@ server <- function(input, output, session) {
     <p>Yet, the implementation of TPT in practice remains largely unknown, especially in countries with high TB and HIV incidences. Here, we examined the access to and use of TPT in a global sample of HIV care clinics in LMICs. Specifically, we focused on the implementation of the WHO recommendations to provide TPT to high-risk populations, and determined the availability of different TPT regimens.</p>
   ")
   })
-  
   
   # Text output for "Barriers" tab
   output$text2 <- renderUI({
@@ -352,4 +388,3 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui = ui, server = server)
-
