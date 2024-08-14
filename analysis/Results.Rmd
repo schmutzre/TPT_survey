@@ -35,7 +35,6 @@ library(cowplot)
 library(MASS)
 library(tidyverse)
 
-
 source("../utils/plots.R")
                                       
 df <- readRDS("../data_clean/data_clean.rds") %>% 
@@ -84,11 +83,11 @@ country_lookup <- tibble::tribble(
   "KEN", "Kenya",
   "TGO", "Togo"
   # Add other country codes and names as needed
-)
+) 
 
 df_no_TPT <- df_no_TPT %>%
   left_join(country_lookup, by = c("country" = "country_code")) %>%
-  select(country_name, name, region, Prev_cat.factor, Income_group, level.factor, tbhiv_integration.factor) %>%
+  dplyr::select(country_name, name, region, Prev_cat.factor, Income_group, level.factor, tbhiv_integration.factor) %>%
   rename(Country = country_name,
          Name = name, 
          Region = region,
@@ -97,7 +96,6 @@ df_no_TPT <- df_no_TPT %>%
          `Facility level of care` = level.factor,
          `Level of Integration` = tbhiv_integration.factor) %>% 
   arrange(Country)
-# Create the table using gt
 
 df_no_TPT %>%
   gt() %>%
@@ -118,6 +116,8 @@ df_no_TPT %>%
 # Figure 1
 
 Identifying populations for latent TB infection (LTBI) testing and TB preventive treatment after exclusion of active TB. Mapping according to WHO guidelines (see WHO consolidated guidelines, Table 1, page xi). Household contacts are defined as household contacts of people with bacteriologically confirmed pulmonary TB, regardless of HIV status. These three groups are not exclusive, there can be overlap. PLHIV can also be household contacts.
+
+## Some exploratory plots to get an overview of the data for PLHIV
 
 ```{r}
 dt <- df %>%
@@ -193,9 +193,9 @@ df1 <- df %>%
     tpt_adult = tpt_eligible_adult___77) %>% 
   select(-c(tpt_eligible_adult___77:tpt_eligible_adult___88)) %>% 
   rename(
-    'Children (< 5 years)' = tpt_peds_lt5,
-    'Children (5-10 years)' = tpt_peds_ge9,
-    'Adults & adolescents (>10 years)' = tpt_adults,
+    'Children (<5 years)' = tpt_peds_lt5,
+    'Children (5-9 years)' = tpt_peds_ge9,
+    'Adults & adolescents (≥10 years)' = tpt_adults,
     'Contacts of MDR-TB Patients' = tpt_hrcontacts,
     'People on anti-TNF treatment' = tpt_atrisk___3,
     'People preparing for transplant' = tpt_atrisk___4,
@@ -208,7 +208,7 @@ df1 <- df %>%
     'Alcohol users' = tpt_atrisk___11,
     'Tabacco users' = tpt_atrisk___12,
     'Underweight' = tpt_atrisk___13,
-    'Adults & adolescents (>10 years) ' = tpt_adult, #add space to distingush it from the same variable in the other category
+    'Adults & adolescents (≥10 years) ' = tpt_adult, #add space to distingush it from the same variable in the other category
     'Infants (<12months, contact with person with TB)' = tpt_lt12m,
     'Children (1-9 years, high TB setting)' = tpt_ge1y,
     'Children (1-9 years, completed TB treatment)' = tpt_g11y_tb,
@@ -229,13 +229,13 @@ df1 <- df %>%
                       labels = c("No", "Yes", "Don't know", "Don't know")),
     who_group = factor(
       case_when(
-        variable %in% c("Adults & adolescents (>10 years) ", #add a space to distinguish it from the same variable in the other category
+        variable %in% c("Adults & adolescents (≥10 years) ", #add a space to distinguish it from the same variable in the other category
                         "Infants (<12months, contact with person with TB)", 
                         "Children (1-9 years, high TB setting)", 
                         "Children (1-9 years, completed TB treatment)") ~ "People living with HIV",
-        variable %in% c("Children (< 5 years)",
-                        "Children (5-10 years)",
-                        "Adults & adolescents (>10 years)",
+        variable %in% c("Children (<5 years)",
+                        "Children (5-9 years)",
+                        "Adults & adolescents (≥10 years)",
                         "Contacts of MDR-TB Patients") ~ "Household contacts",
         variable %in% c("People on anti-TNF treatment",
                         "People preparing for transplant",
@@ -255,7 +255,7 @@ df1$`Level of integration` <- factor(df1$`Level of integration`,
                                      levels = c("No", "Partial", "Full"))
 
 df1$`HIV Prevalence` <- factor(df1$`HIV Prevalence`, 
-                               levels = c("Low (<1%)", "Middle (1-5%)", "High (>5%)"))
+                               levels = c("Low", "Medium", "High"))
 
 saveRDS(df1, "../data_clean/df1.rds")
 ```
@@ -263,13 +263,13 @@ saveRDS(df1, "../data_clean/df1.rds")
 ```{r}
 fig.1 <- fig1("", pct = T)
 fig.1
-ggsave("../results/fig1.png", plot = fig.1, width = 16, height = 12, units = "cm", dpi = 300)
+ggsave("../results/fig1.png", plot = fig.1, width = 18, height = 12, units = "cm", dpi = 300)
 ```
 
 ### Stratified by high burden countries (all)
 
 ```{r}
-fig1("HBC")
+fig1("ANY_HBC")
 ```
 
 ### Stratified by high burden countries (any vs. no)
@@ -311,63 +311,38 @@ fig1("LTBI testing")
 ### Panel
 
 ```{r, fig.height=15, fig.width=11, message=F, warning=F}
+fig1a <- fig1("region") + 
+  labs(title = "a | By region")
 
-fig1a <- fig1("HBC_ANY") + theme(strip.text.y.right = element_blank(), 
-                                 axis.title.x.bottom = element_blank()) + 
-    scale_x_continuous(
-      labels = function(x) paste0(format(x * 100, digits = 2), "%"),
-      breaks = c(0, 1)) +
-  labs(title = "a | Stratified by high TB burden countries")
+ggsave("../results/fig1a.png", plot = fig1a, width = 18, height = 12, units = "cm", dpi = 300)
 
-fig1b <- fig1("region") + 
-  theme(axis.text.y = element_blank(), 
-        axis.title.x.bottom = element_blank()) +
-  scale_x_continuous(
-    labels = function(x) paste0(format(x * 100, digits = 2), "%"),
-    breaks = c(0, 1))+
-  labs(title = "b | Stratified by region")
+fig1b <- fig1("HBC_ANY") + 
+  labs(title = "b | By TB burden")
 
-fig1c <- fig1("Income Level") + 
-  theme(strip.text.y.right = element_blank(), 
-        axis.title.x.bottom = element_blank()) +  
-  scale_x_continuous(
-    labels = function(x) paste0(format(x * 100, digits = 2), "%"),
-    breaks = c(0, 1)) +
-  labs(title = "c | Stratified by Income Level")
+ggsave("../results/fig1b.png", plot = fig1b, width = 18, height = 12, units = "cm", dpi = 300)
 
-fig1d <- fig1("HIV Prevalence") + 
-  theme(axis.text.y = element_blank(), 
-        axis.title.x.bottom = element_blank()) +  
-  scale_x_continuous(
-    labels = function(x) paste0(format(x * 100, digits = 2), "%"),
-    breaks = c(0, 1))+
-  labs(title = "d | Stratified by HIV Prevalence")
+fig1c <- fig1("HIV Prevalence") + 
+  labs(title = "c | By national HIV prevalence")
 
-fig1e <- fig1("Level of integration") + 
-  theme(strip.text.y.right = element_blank(),
-        axis.title.x.bottom = element_blank()) +  
-  scale_x_continuous(
-    labels = function(x) paste0(format(x * 100, digits = 2), "%"),
-    breaks = c(0, 1)) +
-  labs(title = "e | Stratified by Level of Integration")
+ggsave("../results/fig1c.png", plot = fig1c, width = 18, height = 12, units = "cm", dpi = 300)
 
-fig1f <- fig1("LTBI testing")+
-  theme(axis.text.y = element_blank(),
-        axis.title.x.bottom = element_blank()) +  
-  scale_x_continuous(
-    labels = function(x) paste0(format(x * 100, digits = 2), "%"),
-    breaks = c(0, 1)) +
-  labs(title = "f | Stratified by LTBI testing")
+fig1d <- fig1("Level of integration") + 
+  labs(title = "d | By level of HIV/TB service integration")
   
+ggsave("../results/fig1d.png", plot = fig1d, width = 18, height = 12, units = "cm", dpi = 300)
 
-fig.1 <- ggarrange(fig1a, fig1b, fig1c, fig1d, fig1e,fig1f,
+
+fig.1.panel <- ggarrange(fig1a, fig1b, fig1c, fig1d,
                  common.legend = TRUE, 
-                 ncol = 2, nrow = 3,
+                 ncol = 2, nrow = 2,
                  legend = "bottom", 
-                 widths = c(1.5, 1))
+                 widths = c(1.6,1))
                  
 
-fig.1
+fig.1.panel
+
+ggsave("../results/fig1_panel.png", plot = fig.1.panel, width = 16, height = 16, units = "cm", dpi = 300)
+
 ```
 
 # Figure 2
@@ -411,9 +386,10 @@ saveRDS(df2, "../data_clean/df2.rds")
 ```
 
 ```{r, fig.cap="Figure 2: Proportion of clinics responding to the questions regarding specific boundaries to initiating patients with HIV on TPT at the clinic. Also, if somebody in the clinic received formal training for TPT."}
+source("../utils/plots.R")
 fig.2 <- fig2("", pct = T)
 fig.2
-ggsave("../results/fig2.png", plot = fig.2, width = 16, height = 12, units = "cm", dpi = 300)
+ggsave("../results/fig2.png", plot = fig.2, width = 18, height = 12, units = "cm", dpi = 300)
 ```
 
 ### Stratified by high burden countries
@@ -633,7 +609,7 @@ df5$`Level of integration` <- factor(df5$`Level of integration`,
                                      levels = c("No", "Partial", "Full"))
 
 df5$`HIV Prevalence` <- factor(df5$`HIV Prevalence`, 
-                               levels = c("Low (<1%)", "Middle (1-5%)", "High (>5%)")) 
+                               levels = c("Low", "Medium", "High")) 
 
 df5$`LTBI testing` <- relevel(df5$`LTBI testing`, ref = "No")
 
@@ -738,7 +714,7 @@ df5 %>%
 ```{r}
 fig.5 <- fig5("")
 fig.5
-ggsave("../results/fig5.png", plot = fig.5, width = 16, height = 12, units = "cm", dpi = 300)
+ggsave("../results/fig5.png", plot = fig.5, width = 18, height = 12, units = "cm", dpi = 300)
 ```
 
 ### Stratified by high burden countries
@@ -750,19 +726,30 @@ fig5("HBC")
 ### Stratified by high burden countries (any vs. no)
 
 ```{r}
-fig5("HBC_ANY")
+fig5b <- fig5("HBC_ANY")+
+  labs(title = "b | By TB burden")
+
+ggsave("../results/fig5b.png", plot = fig5b, width = 18, height = 12, units = "cm", dpi = 300)
 ```
 
 ### Stratified by region
 
 ```{r}
-fig5("region")
+fig5a <- fig5("region")+
+  labs(title = "a | By region")
+
+ggsave("../results/fig5a.png", plot = fig5a, width = 18, height = 12, units = "cm", dpi = 300)
 ```
 
 ### Stratified by level of integration
 
 ```{r}
 fig5("Level of integration")
+
+fig5d <- fig5("Level of integration")+
+  labs(title = "d | By level of HIV/TB service integration")
+
+ggsave("../results/fig5d.png", plot = fig5d, width = 18, height = 12, units = "cm", dpi = 300)
 ```
 
 ### Stratified by Income Level
@@ -774,7 +761,10 @@ fig5("Income Level")
 ### Stratified by HIV Prevalence
 
 ```{r, warning=FALSE}
-fig5("HIV Prevalence")
+fig5c <- fig5("HIV Prevalence")+
+  labs(title = "c | By national HIV prevalence")
+
+ggsave("../results/fig5c.png", plot = fig5c, width = 18, height = 12, units = "cm", dpi = 300)
 ```
 
 ### Stratified by LTBI testing to check eligiblity for TPT for PLHIV
@@ -824,11 +814,13 @@ df5_model <- df5 %>%
 
 df5_model$`Income Level` <- droplevels(df5_model$`Income Level`)
 
-df5_model$HBC_ANY <- factor(df5_model$HBC_ANY, 
-                            levels = c("HBC", "Not HBC"),  # current levels
-                            labels = c("Yes", "No"))       # new labels
-
 df5_model$HBC_ANY <- relevel(df5_model$HBC_ANY, ref = "No")
+df5_model$region <- relevel(df5_model$region, ref = "Asia-Pacific")
+df5_model$`Level of integration` <- relevel(df5_model$`Level of integration`, ref = "Full")
+df5_model$`HIV Prevalence` <- relevel(df5_model$`HIV Prevalence`, ref = "High")
+df5_model$`Income Level` <- relevel(df5_model$`Income Level`, ref = "Upper middle")
+
+
 
 df5_model %>% 
   tbl_summary(include = c(
@@ -839,8 +831,6 @@ df5_model %>%
 #### Univariable
 
 ```{r, warning=FALSE, message=FALSE}
-theme_gtsummary_journal(journal="jama")
-
 df5_model %>%
     tbl_uvregression(include = c(region, HBC_ANY, `Level of integration`, `Income Level`, `HIV Prevalence`, `LTBI testing`), 
       method = glm,
@@ -857,52 +847,39 @@ df5_model %>%
   gt::gtsave(filename = "../results/tbl_rif.docx")
 ```
 
-#### Multivariable 
-
-```{r warning=FALSE, message=FALSE}
-theme_gtsummary_journal(journal="jama")
-glm(RIF ~ region + HBC_ANY + `Level of integration` + `Income Level` + `HIV Prevalence` + `LTBI testing`, family = binomial(), method =  "brglmFit", data = df5_model) %>% 
-    tbl_regression(exponentiate = TRUE, 
-                   pvalue_fun = ~style_sigfig(., digits = 2), add_estimate_to_reference_rows = TRUE) %>%  
-    bold_labels() %>% 
-    modify_table_body(
-      ~mutate(.x, ci = ifelse(reference_row == TRUE, "Reference", ci))) %>% 
-  add_global_p()
-```
-
 ### Panel
 
 ```{r, fig.height=15, fig.width=11, message=F, warning=F}
-fig5a <- fig5("HBC_ANY") + 
+fig5a <- fig5("region") + 
   theme(strip.text.y.right = element_blank(), 
         axis.title.x.bottom = element_blank()) +
   scale_x_continuous(
     labels = function(x) paste0(format(x * 100, digits = 2), "%"),
     breaks = c(0, 1)) +
-labs(title = "a | Stratified by high TB burden countries")
+labs(title = "a | By region")
 
-fig5b <- fig5("region") + 
+fig5b <- fig5("HBC_ANY") + 
   theme(axis.text.y = element_blank(), 
         axis.title.x.bottom = element_blank()) +  
   scale_x_continuous(
     labels = function(x) paste0(format(x * 100, digits = 2), "%"),
     breaks = c(0, 1))+
-  labs(title = "b | Stratified by region")
+  labs(title = "b | By TB burden")
 
-fig5c <- fig5("Income Level") + 
+fig5c <- fig5("HIV Prevalence") + 
   theme(strip.text.y.right = element_blank(), 
         axis.title.x.bottom = element_blank()) +  
   scale_x_continuous(
       labels = function(x) paste0(format(x * 100, digits = 2), "%"),
       breaks = c(0, 1))+
-  labs(title = "c | Stratified by Income Level")
+  labs(title = "c | By national HIV prevalence")
 
-fig5d <- fig5("HIV Prevalence") + 
+fig5d <- fig5("Level of integration") + 
   theme(axis.text.y = element_blank(), 
         axis.title.x.bottom = element_blank()) +  scale_x_continuous(
           labels = function(x) paste0(format(x * 100, digits = 2), "%"),
           breaks = c(0, 1))+
-  labs(title = "d | Stratified by HIV Prevalence")
+  labs(title = "d | By level of HIV/TB service integration")
 
 fig5e <- fig5("Level of integration") + 
   theme(strip.text.y.right = element_blank(), 
@@ -920,12 +897,14 @@ fig5f <- fig5("LTBI testing") +
     breaks = c(0, 1))+
   labs(title = "f | Stratified by LTBI testing")
 
-fig.5 <- ggarrange(fig5a, fig5b, fig5c, fig5d, fig5e, fig5f,
+fig.5.panel <- ggarrange(fig5a, fig5b, fig5c, fig5d,
                  common.legend = TRUE, 
-                 ncol = 2, nrow = 3,
+                 ncol = 2, nrow = 2,
                  legend = "bottom", 
-                 widths = c(1.5, 1))
+                 widths = c(1.8, 1))
 fig.5
+
+ggsave("../results/fig5_panel.png", plot = fig.5.panel, width = 16, height = 16, units = "cm", dpi = 300)
 ```
 
 # Table 1
@@ -980,8 +959,6 @@ tbl_merge(
   tab_spanner = c("Overall", "Region")) |>
   as_gt() |> 
   gt::gtsave(filename = "../results/tbl1.docx")
-
-
 ```
 
 # Table 2
@@ -1063,7 +1040,6 @@ tbl2a <- tbl_merge(
   tab_spanner = c("Overall", "Region"))|>
   as_gt() |>
   gt::gtsave(filename = "../results/tbl2.docx")
-
 
 #modify_spanning_header(tab_spanner = c("Overall", "High burden country", "Region"))
 
@@ -1223,7 +1199,7 @@ oPaR$sum_yes <- factor(oPaR$sum_yes, levels = c("No", "Low", "Medium", "High"))
 
 ### Multivariable
 
-```{r message=FALSE, warning=FALSE, }
+```{r message=FALSE, warning=FALSE, include=FALSE}
 theme_gtsummary_journal(journal="jama")
 
 fit_model_mult <- function(data) {
@@ -1264,8 +1240,9 @@ tbl_merge(
 
 ### Univariable
 
-```{r, warning=FALSE, message=FALSE}
+```{r, warning=FALSE, message=FALSE, include=FALSE}
 theme_gtsummary_journal(journal="jama")
+reset_gtsummary_theme()
 
 fit_model_uni <- function(data) {
   data %>%
@@ -1383,20 +1360,16 @@ df7_binomial <- df1 %>%
   mutate(`Income Level` = as.factor(`Income Level`),
          `TPT training` = as.factor(case_when(`TPT training` %in% c(NA, "Dont Know") ~ NA,
                                     TRUE ~ `TPT training`))) %>% ungroup()
-
 df7_binomial$`Level of integration` <- relevel(df7_binomial$`Level of integration`, ref = "No")
-df7_binomial$`Income Level` <- relevel(df7_binomial$`Income Level`, ref = "Low")
-df7_binomial$`HIV Prevalence` <- relevel(df7_binomial$`HIV Prevalence`, ref = "Low (<1%)")
+df7_binomial$`Income Level` <- relevel(df7_binomial$`Income Level`, ref = "Upper middle")
+df7_binomial$`HIV Prevalence` <- relevel(df7_binomial$`HIV Prevalence`, ref = "Low")
 df7_binomial$`TPT training` <- relevel(df7_binomial$`TPT training`, ref = "No")
 df7_binomial$`TPT training` <- droplevels(df7_binomial$`TPT training`)
-df7_binomial$`Facility level of care` <- relevel(df7_binomial$`Facility level of care`, ref = "Regional, provincial or university hospital")
-levels(df7_binomial$`Facility level of care`) <- c("Health centre", "District hospital", "Regional or provincial hospital", "Missing")
+df7_binomial$`Facility level of care` <- relevel(df7_binomial$`Facility level of care`, ref = "District hospital")
 df7_binomial$`Facility level of care` <- droplevels(df7_binomial$`Facility level of care`)
-df7_binomial$Region <- relevel(df7_binomial$Region, ref = "Asia-Pacific")
+df7_binomial$Region <- relevel(df7_binomial$Region, ref = "Africa")
 #df7_binomial$`LTBI testing to determine eligibility of PLHIV to receive TPT` <- relevel(df7_binomial$`LTBI testing to determine eligibility of PLHIV to receive TPT`, ref = "No")
-df7_binomial$`High burden country` <- factor(df7_binomial$`High burden country`, 
-                                             levels = c("HBC", "Not HBC"),  # current levels
-                                             labels = c("Yes", "No"))       # new labels
+      # new labels
 df7_binomial$`High burden country` <- relevel(df7_binomial$`High burden country`, ref = "No")
 df7_binomial$`Income Level` <- droplevels(df7_binomial$`Income Level`)
 
@@ -1452,73 +1425,14 @@ tbl_merge(
   tab_spanner = c("People living with HIV", "Household contacts", "Other people at risk")) |>
   as_gt() |>
   gt::gtsave(filename = "../results/tbl3_binomial.docx")
-
-
 ```
 
-
-### Compare
-
-
-
-
-```{r}
-dta <- data.frame()
-
-for (i in 1:3) {
-  
-  var_mult <- tbl3multi$table_body[[paste0("term_", i)]]
-  est_mult <- tbl3multi$table_body[[paste0("estimate_", i)]]
-  low_mult <- tbl3multi$table_body[[paste0("conf.low_", i)]]
-  up_mult <- tbl3multi$table_body[[paste0("conf.high_", i)]]
-
-  var_uni <- tbl3uni$table_body[[paste0("term_", i)]]
-  est_uni <- tbl3uni$table_body[[paste0("estimate_", i)]]
-  low_uni <- tbl3uni$table_body[[paste0("conf.low_", i)]]
-  up_uni <- tbl3uni$table_body[[paste0("conf.high_", i)]]
-  
-  dta_i <- data.frame(
-    var = c(var_mult, var_uni),
-    est = c(est_mult, est_uni),
-    low = c(low_mult, low_uni),
-    upper = c(up_mult, up_uni),
-    model = c(rep("multivariable", length(var_mult)),
-              rep("univariable", length(var_uni))),
-    type = rep(i, length(var_mult) + length(var_uni)))
-  
-  dta <- rbind(dta, dta_i)
-}
-
-dta <- dta %>% 
-        mutate(type = case_when(type == 1 ~ "PLHIV",
-                            type == 2 ~ "Household contacts",
-                            type == 3 ~ "OPaR",
-                            TRUE ~ NA),
-           log_est = log(est)) %>% 
-           filter(!is.na(var))
-
-ggplot(dta, aes(x = var, y = log_est, color = model)) +
-  geom_point() +
-  facet_wrap(~model) +  
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(title = "Comparison of Regression Estimates",
-         x = "Variable",
-         y = "Log of Estimate",
-         color = "Model Type") +
-  coord_flip()+
-  facet_wrap(~type, ncol = 3)
-
-```
-
-## Results for Manuscript
-
-### Summary
+# Results for Manuscript
 
 tpt implementation per region
 ```{r}
 readRDS("../data_clean/data_clean.rds") %>% group_by(region) %>% summarise(prop = sum(tpt_prov)/n())
 ```
-
 
 proportion per who group
 
@@ -1546,11 +1460,67 @@ df2 %>%
 
 inh/rif
 ```{r}
-tabyl(df5_model$RIF)
-tabyl(df5_model$INH)
+table(df5_model$RIF, df5_model$region)
+table(df5_model$INH, df5_model$`Income Level`)
+
+df5_model %>% 
+  group_by(region) %>% 
+  summarize(
+    total = n(),
+    count = sum(INH == 1),
+    proportion = round(count / total,2))
+
+"Once-weekly isoniazid-rifapentine and 3-month isoniazid-rifampicine were more commonly offered in high TB burden countries"
+
+df5_model %>% group_by(HBC_ANY) %>%
+  summarize(
+    total = n(),
+    count = sum(`Once-weekly isoniazid-rifapentine for 12 weeks (3HP)` %in% c("Adults", "Adults & Children", "Children")),
+    proportion = round(count / total, 2)) %>% gtsummary::tbl_uvregression(
+      method = glm,
+      include = c(HBC_ANY),
+      y = cbind(count, total - count),
+      method.args = list(family = binomial(link = "logit")),
+      exponentiate = TRUE,
+      pvalue_fun = ~style_pvalue(.x, digits = 2))
+
+df5_model %>% group_by(HBC_ANY) %>%
+  summarize(
+    total = n(),
+    count = sum(`3-month isoniazid-rifampicin (3HR)` %in% c("Adults", "Adults & Children", "Children")),
+    proportion = round(count / total, 2)) %>% gtsummary::tbl_uvregression(
+      method = glm,
+      include = c(HBC_ANY),
+      y = cbind(count, total - count),
+      method.args = list(family = binomial(link = "logit")),
+      exponentiate = TRUE,
+      pvalue_fun = ~style_pvalue(.x, digits = 2))
+
+################################################################################
+
+
+df5_model %>% group_by(HBC_ANY) %>%
+  summarize(
+    total = n(),
+    count = sum(`Once-weekly isoniazid-rifapentine for 12 weeks (3HP)` %in% c("Adults", "Adults & Children", "Children")),
+    proportion = round(count / total, 2)
+  ) 
+
+prop.test(x = c(16,94), n = c(37,135))
+
+df5_model %>% group_by(HBC_ANY) %>%
+  summarize(
+    total = n(),
+    count = sum(`3-month isoniazid-rifampicin (3HR)` %in% c("Adults", "Adults & Children", "Children")),
+    proportion = round(count / total, 2)
+  )
+
+prop.test(x = c(7,42), n = c(37,135))
+
 ```
 
 The 6-month isoniazid monotherapy TPT regimen was the most widely offered (xx, xx%), followed by the 3-month once-weekly isoniazid-rifapentine regimen (xx, xx%). 
+
 ```{r}
 df5 %>% select(record_id, `6-month isoniazid (6H)`, `Once-weekly isoniazid-rifapentine for 12 weeks (3HP)`, `3-month rifampicin (3R)`) %>% 
   mutate(`6-month isoniazid (6H)` = ifelse(`6-month isoniazid (6H)` %in% c("Adults", "Adults & Children", "Children"),1,0),
@@ -1565,4 +1535,37 @@ df5 %>% select(record_id, `6-month isoniazid (6H)`, `Once-weekly isoniazid-rifap
 
 ```
 
+high burden comparison
 
+```{r}
+# I use logistic regression to compare the odds of offering TPT to household contacts in high burden countries compared to non-high burden countries
+hbc_tpt<- df1 %>%
+  group_by(HBC_ANY, who_group) %>% 
+   summarize(sum = sum(category == "Yes"),
+             n = n(),
+    prop = round(sum(category == "Yes") / n(),2)) 
+
+glm(cbind(sum, n - sum) ~ HBC_ANY, data = hbc_household %>% filter(who_group == "Household contacts"), family = binomial()) %>% 
+  tbl_regression(exponentiate = TRUE, pvalue_fun = ~style_sigfig(., digits = 2), add_estimate_to_reference_rows = TRUE)
+
+glm(cbind(sum, n - sum) ~ HBC_ANY, data = hbc_household %>% filter(who_group == "Other people at risk"), family = binomial()) %>% 
+  tbl_regression(exponentiate = TRUE, pvalue_fun = ~style_sigfig(., digits = 2), add_estimate_to_reference_rows = TRUE)
+```
+
+hiv prevalence 
+
+```{r}
+hiv_comp <- df1 %>%
+  mutate(`HIV Prevalence` =  case_when(`HIV Prevalence` %in% c("Low (<1%)", "Middle (1-5%)") ~ "Low", TRUE ~ "High")) %>%
+  group_by(`HIV Prevalence`, who_group) %>% 
+   summarize(sum = sum(category == "Yes"),
+             n = n(),
+    prop = round(sum(category == "Yes") / n(),2)) %>% 
+  filter(who_group == "Household contacts")
+
+x_values <- as.numeric(hiv_comp$sum)
+n_values <- as.numeric(hiv_comp$n)
+prop_test_result <- prop.test(x = x_values, n = n_values)
+print(prop_test_result)
+
+```

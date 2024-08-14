@@ -371,8 +371,6 @@ server <- function(input, output, session) {
   output$text2 <- renderUI({
     HTML("
     <p>Identifying barriers preventing clinics to provide TPT:</p>
-    
-    <p> We should add some more informations here.</p>
   ")
   })
   
@@ -382,7 +380,6 @@ server <- function(input, output, session) {
     <p>Identifying the frequency of treatment use:</p>
     
     <p> The clinical efficacy and cost-effectiveness of TPT is established, either using longer 6–12-month isoniazid-based TPT, or shorter 1–3-month rifamycin-containing regimens. Short course TPT regimens have the advantage to be less toxic than longer isoniazid monotherapy, thus decreasing adverse events and improving treatment completion. <p>
-    <p> We should add some more informations here.</p>
   ")
   })
 }

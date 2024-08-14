@@ -1,3 +1,7 @@
+# this is the file that was stored in the utils folder for the manuscript,
+# not sure if something got mixed up
+
+
 ################################################################################
 #' This file includes plotting helper functions 
 ################################################################################
@@ -90,7 +94,7 @@ fig1 <- function(stratifying_var, pct = FALSE) {
       cols = vars(!!sym(stratifying_var)), 
       scales = "free_y", 
       space = "free", 
-      labeller = label_wrap_gen(width = 12)) +
+      labeller = label_wrap_gen(width = 14)) +
     theme(
       axis.text.y = element_text(hjust = 1, size = 10),
       legend.position = "bottom",
@@ -98,7 +102,7 @@ fig1 <- function(stratifying_var, pct = FALSE) {
       text = element_text(size = 10),   # Set the base font size here
       axis.title = element_text(size = 10),
       axis.text = element_text(size = 10),
-      #legend.key.size = unit(0.1, "cm"),
+      legend.key.size = unit(0.1, "cm"),
       plot.title = element_text(size = 10),
       legend.title = element_text(size = 10),
       legend.text = element_text(size = 10),
@@ -119,24 +123,19 @@ fig1 <- function(stratifying_var, pct = FALSE) {
     
     p <- p + geom_vline(xintercept = 0.5, linetype = "dashed", color = "white") +
       theme(
-        axis.text.y = element_text(hjust = .9, size = 10),
+        axis.text.y = element_text(hjust = 1, size = 6),
         legend.position = "bottom",
-        panel.spacing.x = unit(.9, "lines"),
+        panel.spacing.x = unit(.6, "lines"),
         panel.spacing.y = unit(.1, "lines"),
-        text = element_text(size = 10),   # Set the base font size here
-        axis.title = element_text(size = 10),
-        axis.text = element_text(size = 10),
-        plot.title = element_text(size = 10),
-        legend.title = element_text(size = 10),
+        text = element_text(size = 6),   # Set the base font size here
+        axis.title = element_text(size = 6),
+        axis.text = element_text(size = 6),
+        plot.title = element_text(size = 6),
+        legend.title = element_text(size = 6),
         legend.key.size = unit(0.1, "cm"),
-        legend.text = element_text(size = 8),
-        strip.text.x = element_text(size = 10),  # Set facet label size for columns
-        strip.text.y = element_text(size = 10),
-        plot.margin = margin(5, 10, 5, 5)) +
-      scale_x_continuous(
-        limits = c(0, 1), 
-        labels = function(x) paste0(format(x * 100, digits = 2)),
-        breaks = c(0, 0.5, 1)) 
+        legend.text = element_text(size = 6),
+        strip.text.x = element_text(size = 6),  # Set facet label size for columns
+        strip.text.y = element_text(size = 6) ) 
     
     return(p)
     
@@ -160,8 +159,8 @@ fig1 <- function(stratifying_var, pct = FALSE) {
       geom_text(aes(label = scales::percent(prop_yes), y = variable, x = prop_yes - 0.05),
                        data = df_main %>% filter(response == "Yes"),
                        color = "white", 
-                       size = 2.8) 
-      #geom_vline(aes(xintercept = mean_prop), data = prop1, linetype = "dotted", color = "white")
+                       size = 2.8) +
+      geom_vline(aes(xintercept = mean_prop), data = prop1, linetype = "dotted", color = "white")
     
     return(p)
   }
@@ -269,8 +268,8 @@ fig2 <- function(stratifying_var, pct = FALSE) {
     scale_x_continuous(
       expand = c(0,0), 
       labels = function(x) paste0(format(x * 100, digits = 2)),
-      breaks = c(0, 0.25, 0.5, 0.75,  1)) 
-    #geom_vline(xintercept = 0.5, linetype = "dashed", color = "white")
+      breaks = c(0, 0.25, 0.5, 0.75,  1)) +
+    geom_vline(xintercept = 0.5, linetype = "dashed", color = "white")
   
   if(pct == FALSE) {
     
@@ -297,7 +296,7 @@ fig2 <- function(stratifying_var, pct = FALSE) {
     p <- p + geom_text(aes(label = scales::percent(pr_yes), y = variable, x = pr_yes-0.05),
                        data = df_main %>% filter(response == "Yes"),
                        color = "white", 
-                       size = 3.3) 
+                       size = 2.8) 
     
     return(p)
   }
@@ -438,7 +437,6 @@ fig5 <- function(stratifying_var) {
                      "Not offered" = "#fde9d8",  
                      "Don't know" = "#d3d3d3")
   
-  # the legend should have two rows because there are so many levels
   df5b %>% 
     ggplot(aes(y = variable, 
                fill = factor(category, levels = lvl, exclude = NULL))) +
@@ -454,18 +452,18 @@ fig5 <- function(stratifying_var) {
       scales = "free_y", 
       space = "free") +
     theme(
-      axis.text.y = element_text(hjust = 1, size = 10),
+      axis.text.y = element_text(hjust = 1, size = 6),
       legend.position = "bottom",
-      panel.spacing.x = unit(1, "lines"),
+      panel.spacing.x = unit(.6, "lines"),
       legend.key.size = unit(0.1, "cm"),
-      text = element_text(size = 10),   # Set the base font size here
-      axis.title = element_text(size = 10),
-      axis.text = element_text(size = 10),
-      plot.title = element_text(size = 10),
-      legend.title = element_text(size = 10),
-      legend.text = element_text(size = 8),
-      strip.text.x = element_text(size = 10),  # Set facet label size for columns
-      strip.text.y = element_text(size = 10)) +
+      text = element_text(size = 6),   # Set the base font size here
+      axis.title = element_text(size = 6),
+      axis.text = element_text(size = 6),
+      plot.title = element_text(size = 6),
+      legend.title = element_text(size = 6),
+      legend.text = element_text(size = 6),
+      strip.text.x = element_text(size = 6),  # Set facet label size for columns
+      strip.text.y = element_text(size = 6)) +
     scale_fill_manual(
       values = custom_colors,
       breaks = lvl_rev,
@@ -473,7 +471,7 @@ fig5 <- function(stratifying_var) {
     scale_x_continuous(
       expand = c(0,0), 
       labels = function(x) paste0(format(x * 100, digits = 2)),
-      breaks = c(0, 0.5,  1))+
+      breaks = c(0, 0.25, 0.5, 0.75,  1))+
     geom_vline(xintercept = 0.5, linetype = "dashed", color = "white")+
     guides(fill = guide_legend(nrow = 1, byrow = TRUE))  # Split legend into 2 rows
   

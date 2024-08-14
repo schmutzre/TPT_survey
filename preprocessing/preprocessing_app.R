@@ -76,4 +76,3 @@ df1.table <- df1.app %>%
   summarise(table = paste(details, collapse = "")) %>%
   .$table %>%
   paste(collapse = "")
-df1.table

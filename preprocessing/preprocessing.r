@@ -2304,14 +2304,14 @@ HIV_prev <- read_excel("data_clean/hiv_prev.xlsx") %>%
                                   Prevalence_perc == "..." ~ NA,
                                   TRUE ~ as.numeric(Prevalence_perc))) %>% 
   mutate(Prev_cat = case_when(
-    Prev_numeric < 1 ~ "Low (<1%)",
-    Prev_numeric <= 5 ~ "Middle (1-5%)",
-    Prev_numeric > 5 ~ "High (>5%)",
-    country == "NGA" ~ "Middle (1-5%)",
-    country == "CHN" ~ "Low (<1%)",
+    Prev_numeric < 1 ~ "Low",
+    Prev_numeric <= 5 ~ "Medium",
+    Prev_numeric > 5 ~ "High",
+    country == "NGA" ~ "Medium",
+    country == "CHN" ~ "Low",
     TRUE ~ NA))%>% 
   mutate(Prev_cat.factor = factor(Prev_cat, 
-                                  levels = c("Low (<1%)", "Middle (1-5%)", "High (>5%)"))) %>%
+                                  levels = c("Low", "Medium", "High"))) %>% #Low <1%, Medium 1-5%, High >5%
   select(country, Prev_cat.factor)
 
 # main dataset
@@ -2322,10 +2322,10 @@ data2 <- data  %>%
   left_join(HBC, by = c("country" = "Code")) %>%
   rename(region_exact = region) %>% 
   mutate(
-    HBC_ANY = as.factor(if_else(!is.na(`ANY`) & `ANY` == 1, "HBC", "Not HBC")),
-    HBC_TB = as.factor(if_else(!is.na(`TB`) & `TB` == 1, "HBC", "Not HBC")),
-    HBC_TB_HIV = as.factor(if_else(!is.na(`TB/HIV`) & `TB/HIV` == 1, "HBC", "Not HBC")),
-    HBC_DR_TB = as.factor(if_else(!is.na(`DR-TB`) & `DR-TB` == 1, "HBC", "Not HBC")),
+    HBC_ANY = as.factor(if_else(!is.na(`ANY`) & `ANY` == 1, "Yes", "No")),
+    HBC_TB = as.factor(if_else(!is.na(`TB`) & `TB` == 1, "Yes", "No")),
+    HBC_TB_HIV = as.factor(if_else(!is.na(`TB/HIV`) & `TB/HIV` == 1, "Yes", "No")),
+    HBC_DR_TB = as.factor(if_else(!is.na(`DR-TB`) & `DR-TB` == 1, "Yes", "No")),
     region = as.factor(case_when(
       region_exact == "AP" ~ "Asia-Pacific",
       region_exact == "CN" ~ "Latin America",
