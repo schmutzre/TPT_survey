@@ -386,7 +386,6 @@ saveRDS(df2, "../data_clean/df2.rds")
 ```
 
 ```{r, fig.cap="Figure 2: Proportion of clinics responding to the questions regarding specific boundaries to initiating patients with HIV on TPT at the clinic. Also, if somebody in the clinic received formal training for TPT."}
-source("../utils/plots.R")
 fig.2 <- fig2("", pct = T)
 fig.2
 ggsave("../results/fig2.png", plot = fig.2, width = 18, height = 12, units = "cm", dpi = 300)
@@ -1429,6 +1428,13 @@ tbl_merge(
 
 # Results for Manuscript
 
+```{r}
+check <- df2 %>% filter(variable == "Medication availability")
+table(check$category)
+```
+
+
+
 tpt implementation per region
 ```{r}
 readRDS("../data_clean/data_clean.rds") %>% group_by(region) %>% summarise(prop = sum(tpt_prov)/n())
@@ -1495,28 +1501,6 @@ df5_model %>% group_by(HBC_ANY) %>%
       method.args = list(family = binomial(link = "logit")),
       exponentiate = TRUE,
       pvalue_fun = ~style_pvalue(.x, digits = 2))
-
-################################################################################
-
-
-df5_model %>% group_by(HBC_ANY) %>%
-  summarize(
-    total = n(),
-    count = sum(`Once-weekly isoniazid-rifapentine for 12 weeks (3HP)` %in% c("Adults", "Adults & Children", "Children")),
-    proportion = round(count / total, 2)
-  ) 
-
-prop.test(x = c(16,94), n = c(37,135))
-
-df5_model %>% group_by(HBC_ANY) %>%
-  summarize(
-    total = n(),
-    count = sum(`3-month isoniazid-rifampicin (3HR)` %in% c("Adults", "Adults & Children", "Children")),
-    proportion = round(count / total, 2)
-  )
-
-prop.test(x = c(7,42), n = c(37,135))
-
 ```
 
 The 6-month isoniazid monotherapy TPT regimen was the most widely offered (xx, xx%), followed by the 3-month once-weekly isoniazid-rifapentine regimen (xx, xx%). 
