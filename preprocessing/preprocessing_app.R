@@ -8,7 +8,7 @@ coordinates <- read.csv("data_clean/coordinates_sites.csv") %>%
   select(record_id, latitude, longitude)
 
 dataSites <- df %>% 
-  select(record_id, country, name, region, HBC_ANY, adultped.factor, rural.factor, level.factor, tbhiv_integration.factor, tpt_training.factor, HBC_ANY, Income_group, Prev_cat.factor)  %>% 
+  select(record_id, country, name, region, region_exact, HBC_ANY, adultped.factor, rural.factor, level.factor, tbhiv_integration.factor, tpt_training.factor, Income_group, Prev_cat.factor)  %>% 
   rename(`Population the center serves` = adultped.factor,
          `Facility location` = rural.factor,
          `Facility level of care`  = level.factor,
@@ -20,7 +20,12 @@ dataSites <- df %>%
         Region = region) %>% 
   mutate(`Facility level of care` = fct_drop(`Facility level of care`),
          `Facility location` = fct_drop(`Facility location`),
-         `High burden country` = ifelse(`High burden country`== "HBC", "Yes", "No")) %>% 
+         Region = case_when(region_exact == "WA" ~ "Western Africa",
+                                  region_exact == "SA" ~ "Southern Africa",
+                                  region_exact == "EA" ~ "Eastern Africa",
+                                  region_exact == "CA" ~ "Central Africa",
+                                  TRUE ~ Region),
+         Region = factor(Region, levels = c("Asia-Pacific", "Latin America", "Western Africa", "Southern Africa", "Eastern Africa", "Central Africa"))) %>% 
   mutate(across(.cols = everything(), .fns = ~fct_na_value_to_level(., "Missing"))) %>% 
   left_join(coordinates, by = "record_id")
 
@@ -41,7 +46,11 @@ df1.app <- readRDS("data_clean/df1.rds") %>%
   rename(Region = region,
          `High burden country` = HBC_ANY,
          `Level of integrated TB/HIV services` = `Level of integration`) %>% 
-  mutate(`High burden country` = ifelse(`High burden country`== "HBC", "Yes", "No")) 
+  mutate(`Sub-region Africa` = case_when(region_exact == "WA" ~ "Western Africa",
+                            region_exact == "SA" ~ "Southern Africa",
+                            region_exact == "EA" ~ "Eastern Africa",
+                            region_exact == "CA" ~ "Central Africa",
+                            TRUE ~ "Other")) 
 
 saveRDS(df1.app, "app_tpt/data/df1.rds")
 
@@ -51,7 +60,11 @@ df2.app <- readRDS("data_clean/df2.rds") %>%
   rename(Region = region,
          `High burden country` = HBC_ANY,
          `Level of integrated TB/HIV services` = `Level of integration`) %>% 
-  mutate(`High burden country` = ifelse(`High burden country`== "HBC", "Yes", "No")) 
+  mutate(`Sub-region Africa` = case_when(region_exact == "WA" ~ "Western Africa",
+                                          region_exact == "SA" ~ "Southern Africa",
+                                          region_exact == "EA" ~ "Eastern Africa",
+                                          region_exact == "CA" ~ "Central Africa",
+                                          TRUE ~ "Other")) 
 
 saveRDS(df2.app, "app_tpt/data/df2.rds")
 
@@ -61,7 +74,11 @@ df3.app <- readRDS("data_clean/df5.rds") %>%
   rename(Region = region,
          `High burden country` = HBC_ANY,
          `Level of integrated TB/HIV services` = `Level of integration`) %>% 
-  mutate(`High burden country` = ifelse(`High burden country`== "HBC", "Yes", "No")) %>% 
+  mutate(`Sub-region Africa` = case_when(region_exact == "WA" ~ "Western Africa",
+                                          region_exact == "SA" ~ "Southern Africa",
+                                          region_exact == "EA" ~ "Eastern Africa",
+                                          region_exact == "CA" ~ "Central Africa",
+                                          TRUE ~ "Other"))  %>% 
   filter(variable != "Regimens for MDR-TB exposure" & variable != "Other")
 
 saveRDS(df3.app, "app_tpt/data/df3.rds")

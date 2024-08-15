@@ -22,30 +22,15 @@ fig1 <- function(data, stratifying_var, site = NULL) {
     "Yes" = wes_palette("GrandBudapest2")[4])
   
   # Filter the dataframe if site is provided
-  if (!is.null(site)) {
+  if (stratifying_var == "Sub-region Africa") {
     
-    data %>% filter(record_id == site) %>% 
-      ggplot(aes(y = variable, fill = factor(category, levels = lvl, exclude = NULL))) + 
-      geom_bar(position = "fill") +
-      facet_grid(
-        rows = vars(who_group), 
-        scales = "free_y", 
-        space = "free", 
-        labeller = label_wrap_gen(width = 14)) +
-      scale_fill_manual(
-        values = custom_colors,
-        breaks = c("Yes", "No", "Don't know"),
-        name = NULL) +
-      labs(
-        title = element_blank(), 
-        y = element_blank(), 
-        x = element_blank()) +
-      theme_minimal() +
-      theme(axis.ticks.x = element_blank(),
-            axis.text.x = element_blank())
+    data <- data %>% 
+      filter(Region == "Africa") 
   }
   
-  else{
+  else{ #else data should just stay the same
+    data <- data
+  }
   
   df_main <- data %>%
     group_by(who_group, variable, !!sym(stratifying_var)) %>%
@@ -123,7 +108,6 @@ fig1 <- function(data, stratifying_var, site = NULL) {
   p$x$layout$annotations[[4+nl]]$y <- 11/19 - (11/19 - 0) / 2  
   
   p
-  }
   
   }
 
@@ -139,25 +123,15 @@ fig2 <- function(data, stratifying_var, site = NULL) {
     "Yes" = wes_palette("GrandBudapest2")[4])
   
   # Filter the dataframe if site is provided
-  if (!is.null(site)) {
+  if (stratifying_var == "Sub-region Africa") {
     
-    data %>% filter(record_id == site) %>% 
-      ggplot(aes(y = variable, fill = factor(category, levels = lvl, exclude = NULL))) + 
-      geom_bar(position = "fill") +
-      scale_fill_manual(
-        values = custom_colors,
-        breaks = c("Yes", "No", "Don't know"),
-        name = NULL) +
-      labs(
-        title = element_blank(), 
-        y = element_blank(), 
-        x = element_blank()) +
-      theme_minimal() +
-      theme(axis.ticks.x = element_blank(),
-            axis.text.x = element_blank())
+    data <- data %>% 
+      filter(Region == "Africa") 
   }
   
-  else{
+  else{ #else data should just stay the same
+    data <- data
+  }
   
   df_main <- data %>%
     group_by(variable, !!sym(stratifying_var)) %>%
@@ -216,7 +190,6 @@ fig2 <- function(data, stratifying_var, site = NULL) {
   
   ggplotly(p, tooltip = "text")
   
-  }
 }
 
 #### Figure 3 ------------------------------------------------------------------
@@ -232,32 +205,16 @@ fig3 <- function(data, stratifying_var, site = NULL) {
                      "Not offered" = "#fde9d8",  
                      "Don't know" = "#d3d3d3")
   
-  
   # Filter the dataframe if site is provided
-  if (!is.null(site)) {
+  if (stratifying_var == "Sub-region Africa") {
     
-    data %>% filter(record_id == site) %>% 
-      ggplot(aes(y = variable, fill = factor(category, levels = lvl, exclude = NULL))) + 
-      geom_bar(position = "fill") +
-      scale_fill_manual(
-        values = custom_colors,
-        breaks = lvl_rev,
-        name = NULL) +
-      labs(
-        title = element_blank(), 
-        y = element_blank(), 
-        x = element_blank()) +
-      theme_minimal() +
-      theme(axis.ticks.x = element_blank(),
-            axis.text.x = element_blank()) +
-      facet_grid(
-        rows = vars(Regimen), 
-        scales = "free_y", 
-        space = "free")
-    
+    data <- data %>% 
+      filter(Region == "Africa") 
   }
   
-  else{
+  else{ #else data should just stay the same
+    data <- data
+  }
   
   df_main <- data %>% 
     group_by(variable, !!sym(stratifying_var)) %>% 
@@ -332,5 +289,4 @@ fig3 <- function(data, stratifying_var, site = NULL) {
   
   p
   
-  }
 }

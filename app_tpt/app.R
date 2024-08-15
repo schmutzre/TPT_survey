@@ -13,6 +13,7 @@ library(shinythemes)
 # Source the external plots.R script
 source("utils/plots.R")
 # Load data
+#datacheck <- readRDS("app_tpt/data/data.rds")
 dataSites <- readRDS("data/data.rds")
 
 df1 <- readRDS("data/df1.rds")
@@ -27,8 +28,21 @@ vars <- c("None",
           "HIV Prevalence",
           "High burden country")
 
+vars_plot <- c("None", 
+               "Region",
+               "Sub-region Africa",
+               "Level of integrated TB/HIV services",
+               "Income Level",
+               "HIV Prevalence",
+               "High burden country")
+
 ui <- navbarPage("TPT", id="nav",
                  theme = shinytheme("readable"),
+                 div(class = "logo-container",
+                     tags$img(src = "logo1.png", height = "40px", style = "margin-right: 10px;"),
+                     tags$img(src = "logo3.png", height = "50px"),
+                     style = "position: absolute; top: 5px; right: 10px; z-index: 1000;"
+                 ),
                  tabPanel("Map",
                           div(class="outer",
                               tags$head(
@@ -88,7 +102,7 @@ ui <- navbarPage("TPT", id="nav",
                           fluidPage(
                             sidebarLayout(
                               sidebarPanel(
-                                selectInput("colorPlot1", "Stratifying variable:", vars),
+                                selectInput("colorPlot1", "Stratifying variable:", vars_plot),
                                 uiOutput("text1")  # Use uiOutput here
                               ),
                               mainPanel(
@@ -107,7 +121,7 @@ ui <- navbarPage("TPT", id="nav",
                           fluidPage(
                             sidebarLayout(
                               sidebarPanel(
-                                selectInput("colorPlot2", "Stratifying variable:", vars),
+                                selectInput("colorPlot2", "Stratifying variable:", vars_plot),
                                 uiOutput("text2")
                               ),
                               mainPanel(
@@ -126,7 +140,7 @@ ui <- navbarPage("TPT", id="nav",
                           fluidPage(
                             sidebarLayout(
                               sidebarPanel(
-                                selectInput("colorPlot3", "Stratifying variable:", vars),
+                                selectInput("colorPlot3", "Stratifying variable:", vars_plot),
                                 uiOutput("text3")
                               ),
                               mainPanel(

@@ -57,6 +57,11 @@ df_no_TPT <- readRDS("../data_clean/data_clean.rds") %>%
 # Data overview
 
 ```{r}
+#regions
+library(janitor)
+janitor::tabyl(df$region_exact) %>% adorn_totals("row") %>%
+  adorn_pct_formatting(digits = 0)
+
 df %>%
   select(country, Prev_cat.factor, Income_group) %>% 
   group_by(country) %>%
@@ -175,7 +180,7 @@ dt_none <- df %>%
 
 df1 <- df %>%
   select(
-    record_id, region, tpt_eligible_adult___77:tpt_eligible_adult___88, tpt_lt12m, tpt_ge1y, tpt_g11y_tb, tpt_peds_lt5,
+    record_id, region, region_exact, tpt_eligible_adult___77:tpt_eligible_adult___88, tpt_lt12m, tpt_ge1y, tpt_g11y_tb, tpt_peds_lt5,
     tpt_peds_ge9, tpt_adults, tpt_hrcontacts, tpt_atrisk___3:tpt_atrisk___13, HBC_ANY, HBC_TB,
     HBC_TB_HIV, HBC_DR_TB, tbhiv_integration.factor, Income_group, Prev_cat.factor, ltbi_ligibility.factor)  %>% 
   mutate(
@@ -221,7 +226,7 @@ df1 <- df %>%
     .fns = ~ as.factor(as.character(.))))  %>% 
   pivot_longer(
     cols = 
-      -c(record_id, region, HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB, `Level of integration`, `Income Level`, `HIV Prevalence`, `LTBI testing`),
+      -c(record_id, region, region_exact, HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB, `Level of integration`, `Income Level`, `HIV Prevalence`, `LTBI testing`),
     names_to = "variable",
     values_to = "category")  %>% 
   mutate(
@@ -351,7 +356,7 @@ Barriers to TPT administration: \*\*11.15 What are the most important barriers t
 
 ```{r}
 df2 <- df %>% 
-  select(record_id, region, tpt_barriers___77:tpt_barriers___88, HBC_ANY, HBC_TB,
+  select(record_id, region, region_exact, tpt_barriers___77:tpt_barriers___88, HBC_ANY, HBC_TB,
     HBC_TB_HIV, HBC_DR_TB, tbhiv_integration.factor, Income_group, Prev_cat.factor, ltbi_ligibility.factor) %>%
   rename(
          'No barriers' = tpt_barriers___77,
@@ -368,7 +373,7 @@ df2 <- df %>%
          'HIV Prevalence' = Prev_cat.factor,
          'LTBI testing' = ltbi_ligibility.factor) %>% 
   mutate(across(everything(), ~ as.factor(.))) %>% 
-  pivot_longer(cols = -c(record_id, region, HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB, `Level of integration`, `Income Level`, `HIV Prevalence`, `LTBI testing`),
+  pivot_longer(cols = -c(record_id, region, region_exact, HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB, `Level of integration`, `Income Level`, `HIV Prevalence`, `LTBI testing`),
                names_to = "variable",
                values_to = "category") %>% 
   mutate(variable = as.factor(variable),
@@ -567,8 +572,8 @@ code_trt <- function(adult_col, child_col, none_col, unknown_col) {
 }
 
 df5 <- df %>% 
-  select(record_id, inh6_b___1:other_specify_b___3, region, HBC_ANY, HBC_TB,
-    HBC_TB_HIV, HBC_DR_TB, tbhiv_integration.factor, Income_group, Prev_cat.factor, ltbi_ligibility.factor) %>% 
+  select(record_id, inh6_b___1:other_specify_b___3, region, region_exact, HBC_ANY, HBC_TB,
+    HBC_TB_HIV, HBC_DR_TB, tbhiv_integration.factor, Income_group, Prev_cat.factor, ltbi_ligibility.factor, tpt_training.factor, level.factor) %>% 
   mutate(
          record_id = as.character(record_id),
          '6-month isoniazid (6H)' = 
@@ -596,13 +601,17 @@ df5 <- df %>%
                     mdrtb_specify_b___3),
          Other = 
            code_trt(other_specify_b___1, other_specify_b___2, other_specify_b___77,
-                    other_specify_b___3)) %>% 
-  select(record_id, '6-month isoniazid (6H)':Other, region, HBC_ANY, HBC_TB,
-    HBC_TB_HIV, HBC_DR_TB, tbhiv_integration.factor, Income_group, Prev_cat.factor, ltbi_ligibility.factor)  %>% 
+                    other_specify_b___3),
+         `tpt_training.factor` = as.factor(case_when(`tpt_training.factor` %in% c(NA, "Dont Know") ~ NA,
+                                    TRUE ~ `tpt_training.factor`))) %>% 
+  select(record_id, '6-month isoniazid (6H)':Other, region, region_exact, HBC_ANY, HBC_TB,
+    HBC_TB_HIV, HBC_DR_TB, tbhiv_integration.factor, Income_group, Prev_cat.factor, ltbi_ligibility.factor, level.factor, tpt_training.factor)  %>% 
   rename('Level of integration' = tbhiv_integration.factor,
          'Income Level' = Income_group, 
          'HIV Prevalence' = Prev_cat.factor,
-         'LTBI testing' = ltbi_ligibility.factor) 
+         'LTBI testing' = ltbi_ligibility.factor,
+         'TPT training' = tpt_training.factor,
+        'Facility level of care' = level.factor) 
 
 df5$`Level of integration` <- factor(df5$`Level of integration`,
                                      levels = c("No", "Partial", "Full"))
@@ -612,11 +621,16 @@ df5$`HIV Prevalence` <- factor(df5$`HIV Prevalence`,
 
 df5$`LTBI testing` <- relevel(df5$`LTBI testing`, ref = "No")
 
+df5$`TPT training` <- relevel(df5$`TPT training`, ref = "No")
+df5$`TPT training` <- droplevels(df5$`TPT training`)
+df5$`Facility level of care` <- relevel(df5$`Facility level of care`, ref = "Regional, provincial or university hospital")
+levels(df5$`Facility level of care`) <- c("Health centre", "District hospital", "Regional or provincial hospital", "Missing")
+
 df5b <- df5 %>% 
   pivot_longer(
     cols = 
-      -c(record_id, region, HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB, `Level of integration`, 
-         `Income Level`, `HIV Prevalence`, `LTBI testing`),
+      -c(record_id, region, region_exact, HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB, `Level of integration`, 
+         `Income Level`, `HIV Prevalence`, `LTBI testing`, `Facility level of care`, `TPT training`),
     names_to = "variable",
     values_to = "category") %>% 
   mutate(variable = fct(variable),
@@ -819,19 +833,25 @@ df5_model$`Level of integration` <- relevel(df5_model$`Level of integration`, re
 df5_model$`HIV Prevalence` <- relevel(df5_model$`HIV Prevalence`, ref = "High")
 df5_model$`Income Level` <- relevel(df5_model$`Income Level`, ref = "Upper middle")
 
-
-
 df5_model %>% 
   tbl_summary(include = c(
-                          region, HBC_ANY, `Level of integration`, `Income Level`, `HIV Prevalence`, `LTBI testing`), 
-              digits = list(everything() ~ c(0)))   
+                          region, HBC_ANY, `Level of integration`, `Income Level`, `HIV Prevalence`, `LTBI testing`, `TPT training`, `Facility level of care`), 
+              digits = list(everything() ~ c(0))) 
 ```
 
 #### Univariable
 
 ```{r, warning=FALSE, message=FALSE}
+
 df5_model %>%
-    tbl_uvregression(include = c(region, HBC_ANY, `Level of integration`, `Income Level`, `HIV Prevalence`, `LTBI testing`), 
+    tbl_uvregression(include = c(`Level of integration`, 
+                                 `Income Level`, 
+                                 `HIV Prevalence`, 
+                                 HBC_ANY,  
+                                 `TPT training`, 
+                                 `Facility level of care`,
+                                 `LTBI testing`, 
+                                 region), 
       method = glm,
       y = RIF,
       method.args = list(family = binomial(link = "logit"), method = "brglmFit"),
@@ -842,7 +862,7 @@ df5_model %>%
     modify_table_body(
       ~mutate(.x, ci = ifelse(reference_row == TRUE, "Reference", ci))) %>% 
   add_global_p()|>
-  as_gt() |>
+  as_gt()
   gt::gtsave(filename = "../results/tbl_rif.docx")
 ```
 
