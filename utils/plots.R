@@ -52,7 +52,7 @@ fig1 <- function(stratifying_var, pct = FALSE) {
     pivot_longer(cols = c("Yes", "No", "Don't know"), names_to = "response",
                  values_to = "count") %>%
     mutate(response = as.factor(response)) %>% 
-    select(prop_yes, variable, response)
+    dplyr::select(prop_yes, variable, response)
     
   df_main <- df1 %>%
     group_by(who_group, variable, !!sym(stratifying_var)) %>%
@@ -211,9 +211,9 @@ fig2 <- function(stratifying_var, pct = FALSE) {
                  values_to = "count") %>%
     mutate(response = as.factor(response)) %>% 
     mutate(variable = factor(variable, levels = unique(variable))) %>%
-    arrange(variable == "No barriers", prop_yes) %>%
+    arrange(desc(variable == "No barriers"), prop_yes) %>%
     mutate(variable = factor(variable, levels = unique(variable))) %>% 
-    select(variable, prop_yes, pr_yes, response)
+    dplyr::select(variable, prop_yes, pr_yes, response)
   
   df_main <- df2 %>%
     group_by(variable, !!sym(stratifying_var)) %>%
@@ -229,7 +229,7 @@ fig2 <- function(stratifying_var, pct = FALSE) {
     mutate(response = as.factor(response)) %>% 
     mutate(variable = factor(variable, levels = unique(variable))) %>%
     left_join(df_order, by = c("variable", "response")) %>% 
-    arrange(variable == "No barriers", prop_yes) %>%
+    arrange(desc(variable == "No barriers"), prop_yes) %>%
     mutate(variable = factor(variable, levels = unique(variable)))
   
   lvl <- c("No", "Yes")
@@ -309,12 +309,12 @@ fig2 <- function(stratifying_var, pct = FALSE) {
 fig3 <- function(variable) {
   
   data <- df3 %>% filter(who_group == variable) %>% 
-    select(-who_group) %>% 
+    dplyr::select(-who_group) %>% 
     group_by(region_exact) %>% 
     summarise(prop = mean(any_yes == 1, na.rm = T))
   
   data2 <- df %>% 
-    select(record_id, country, region, region_exact)  %>% 
+    dplyr::select(record_id, country, region, region_exact)  %>% 
     left_join(data, by = "region_exact") %>%   
     mutate(region = case_when(
       country == "ARG" ~ "Argentina",

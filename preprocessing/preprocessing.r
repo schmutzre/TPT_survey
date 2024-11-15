@@ -2316,7 +2316,7 @@ HIV_prev <- read_excel("data_clean/hiv_prev.xlsx") %>%
 
 # main dataset
 data2 <- data  %>% 
-  filter(!is.na(region), survey_status_complete == 2) %>% 
+  filter(!is.na(region), survey_status_complete == 2)
   mutate(country = as.character(country),
          record_id = as.character(record_id)) %>%  # Convert 'country' to character type
   left_join(HBC, by = c("country" = "Code")) %>%
@@ -2342,7 +2342,8 @@ data2 <- data  %>%
                              rural.factor == "Mostly rural" ~ "Urban",
                              TRUE ~ rural.factor),
     tb_symptom_screen.factor = case_when(tb_symptom_screen_oth %in% c("Oui, à chaque consultation", "at the time of enrollment and every appointment") ~ "Yes, at every appointment", 
-                                         TRUE ~ tb_symptom_screen.factor)) %>%
+                                         TRUE ~ tb_symptom_screen.factor),
+    ) %>%
   select(-c(`ANY`, `TB`, `TB/HIV`, `DR-TB`, Country)) %>% 
   left_join(income, by = "country") %>%
   left_join(HIV_prev, by = "country") %>% 
