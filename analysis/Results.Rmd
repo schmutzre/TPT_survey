@@ -37,11 +37,18 @@ library(tidyverse)
 
 source("../utils/plots.R")
                                       
-df <- readRDS("../data_clean/data_clean.rds") |> 
+df <- readRDS("../data_clean/data_clean.rds") %>%
   filter(tpt_prov == 1)
 
-df_no_TPT <- readRDS("../data_clean/data_clean.rds") %>% 
+df_no_TPT <- readRDS("../data_clean/data_clean.rds") |>
   filter(tpt_prov == 0)
+
+df1 <- readRDS("../data_clean/df1.rds")
+df2 <- readRDS("../data_clean/df2.rds")
+df5 <- readRDS("../data_clean/df5.rds")
+df5b <- readRDS("../data_clean/df5b.rds")
+df6 <- readRDS("../data_clean/df6.rds")
+df7 <- readRDS("../data_clean/df7.rds")
 ```
 
 -   The complete dataset includes 235 observations
@@ -58,19 +65,19 @@ df_no_TPT <- readRDS("../data_clean/data_clean.rds") %>%
 
 ```{r}
 #regions
-janitor::tabyl(df$region_exact) %>% adorn_totals("row") %>%
+janitor::tabyl(df$region_exact) |>adorn_totals("row") %>%
   adorn_pct_formatting(digits = 0)
 
 df %>%
-  dplyr::select(country, Prev_cat.factor, Income_group) %>% 
+  dplyr::select(country, Prev_cat.factor, Income_group) |>
   group_by(country) %>%
   summarise(
     `Number of sites` = n(),
     `HIV Prevalence` = first(Prev_cat.factor),  # Assumes all entries are the same per country
     `Income Group` = first(Income_group)  # Assumes all entries are the same per country
   ) %>%
-  ungroup() %>% 
-  kable() %>% 
+  ungroup() |>
+  kable() |>
   kable_styling(full_width = T)
 ```
 
@@ -86,7 +93,6 @@ country_lookup <- tibble::tribble(
   "UGA", "Uganda",
   "KEN", "Kenya",
   "TGO", "Togo"
-  # Add other country codes and names as needed
 ) 
 
 df_no_TPT <- df_no_TPT %>%
@@ -98,7 +104,7 @@ df_no_TPT <- df_no_TPT %>%
          `HIV Prevalence` = Prev_cat.factor,
          `Income Level` = Income_group,
          `Facility level of care` = level.factor,
-         `Level of Integration` = tbhiv_integration.factor) %>% 
+         `Level of Integration` = tbhiv_integration.factor) |>
   arrange(Country)
 
 df_no_TPT %>%
@@ -134,20 +140,20 @@ dt <- df %>%
          'Contact with TB patient' = tpt_eligible_adult___5,
          'Latent TB infection status' = tpt_eligible_adult___6,
          'Other' = tpt_eligible_adult___88) %>%
-  mutate(across(everything(), as.character)) %>%  # Convert all columns to character
+  mutate(across(everything(), as.character)) |> # Convert all columns to character
   pivot_longer(names_to = "Question", values_to = "Response", cols = -c(record_id, region))
 
-dt %>% ggplot(aes(y = Question, fill = Response)) +
+dt |>ggplot(aes(y = Question, fill = Response)) +
   geom_bar(position = "fill")
 
-dt %>% ggplot(aes(y = Question, fill = Response)) +
+dt |>ggplot(aes(y = Question, fill = Response)) +
   geom_bar(position = "fill") +
   facet_wrap(~region)
 
-dt %>% mutate(Response = as.numeric(Response)) %>% 
-  filter(Response != "None") %>% 
-  group_by(record_id) %>% 
-  summarise(count = sum(Response)) %>% 
+dt |>mutate(Response = as.numeric(Response)) |>
+  filter(Response != "None") |>
+  group_by(record_id) |>
+  summarise(count = sum(Response)) |>
   ggplot(aes(x = count)) +
   geom_histogram(binwidth = .5) +  # Set binwidth to 1 for integer counts
   scale_x_continuous(breaks = scales::pretty_breaks(n = 6)) +  # Adjust the number of breaks
@@ -171,96 +177,7 @@ dt_none <- df %>%
                   `Latent TB infection status`, `Other`), as.numeric)) %>%
   rowwise() %>%
   mutate(Any = if_else(any(c_across(`Antiretroviral status`:`Other`) == 1), 1, 0)) %>%
-  ungroup() %>% dplyr::select(record_id, None, Any) %>% summarise(sum1 = sum(None), sum2 = sum(Any))
-```
-
-```{r, fig.cap="Figure 1: Populations eligible for latent TB infection (LTBI) testing and TB preventive treatment after exclusion of active TB eligible for TPT. Mapping according to WHO guidelines."}
-
-df1 <- df %>%
-  dplyr::select(
-    record_id, country, region, region_exact, tpt_eligible_adult___77:tpt_eligible_adult___88, tpt_lt12m, tpt_ge1y, tpt_g11y_tb, tpt_peds_lt5,
-    tpt_peds_ge9, tpt_adults, tpt_hrcontacts, tpt_atrisk___3:tpt_atrisk___13, HBC_ANY, HBC_TB,
-    HBC_TB_HIV, HBC_DR_TB, tbhiv_integration.factor, Income_group, Prev_cat.factor, ltbi_ligibility.factor)  %>% 
-  mutate(
-    across(
-      c(tpt_lt12m, tpt_g11y_tb, tpt_peds_lt5, tpt_ge1y, tpt_peds_ge9, 
-        tpt_adults,tpt_hrcontacts),
-      ~ as.factor(if_else(is.na(.), "0", as.character(.)))), #manually checked - they dont provide TPT at all, so would be "No" but they had to skip the question
-    across(
-      c(tpt_peds_lt5, tpt_peds_ge9, tpt_adults, tpt_hrcontacts),
-      ~ as.factor(if_else(. == "2", "0", .)))) %>% #"No" was coded as 2 here
-  mutate(across(
-      tpt_eligible_adult___77:tpt_eligible_adult___88,  # Ensure all selected columns are numeric
-      ~ as.numeric(.)
-    ),
-    tpt_adult = tpt_eligible_adult___77) %>% 
-  dplyr::select(-c(tpt_eligible_adult___77:tpt_eligible_adult___88)) %>% 
-  rename(
-    'Children (<5 years)' = tpt_peds_lt5,
-    'Children (5-9 years)' = tpt_peds_ge9,
-    'Adults & adolescents (≥10 years)' = tpt_adults,
-    'Contacts of MDR-TB Patients' = tpt_hrcontacts,
-    'People on anti-TNF treatment' = tpt_atrisk___3,
-    'People preparing for transplant' = tpt_atrisk___4,
-    'People with silicosis' = tpt_atrisk___5,
-    Prisoners = tpt_atrisk___6,
-    'Health workers' = tpt_atrisk___7,
-    'Immigrants (TB burden country)' = tpt_atrisk___8,
-    Homeless = tpt_atrisk___9,
-    'Drug users' = tpt_atrisk___10,
-    'Alcohol users' = tpt_atrisk___11,
-    'Tabacco users' = tpt_atrisk___12,
-    'Underweight' = tpt_atrisk___13,
-    'Adults & adolescents (≥10 years) ' = tpt_adult, #add space to distingush it from the same variable in the other category
-    'Infants (<12months, contact with person with TB)' = tpt_lt12m,
-    'Children (1-9 years, high TB setting)' = tpt_ge1y,
-    'Children (1-9 years, completed TB treatment)' = tpt_g11y_tb,
-    'Level of integration' = tbhiv_integration.factor,
-    'Income Level' = Income_group, 
-    'HIV Prevalence' = Prev_cat.factor,
-    'LTBI testing' = ltbi_ligibility.factor) %>% 
-  mutate(across(
-    .cols = everything(),
-    .fns = ~ as.factor(as.character(.))))  %>% 
-  pivot_longer(
-    cols = 
-      -c(record_id, country, region, region_exact, HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB, `Level of integration`, `Income Level`, `HIV Prevalence`, `LTBI testing`),
-    names_to = "variable",
-    values_to = "category")  %>% 
-  mutate(
-    category = factor(category, levels = c("0", "1", "3", "77"), 
-                      labels = c("No", "Yes", "Don't know", "Don't know")),
-    who_group = factor(
-      case_when(
-        variable %in% c("Adults & adolescents (≥10 years) ", #add a space to distinguish it from the same variable in the other category
-                        "Infants (<12months, contact with person with TB)", 
-                        "Children (1-9 years, high TB setting)", 
-                        "Children (1-9 years, completed TB treatment)") ~ "People living with HIV",
-        variable %in% c("Children (<5 years)",
-                        "Children (5-9 years)",
-                        "Adults & adolescents (≥10 years)",
-                        "Contacts of MDR-TB Patients") ~ "Household contacts",
-        variable %in% c("People on anti-TNF treatment",
-                        "People preparing for transplant",
-                        "Prisoners",
-                        "People with silicosis",
-                        "Health workers",
-                        "Immigrants (TB burden country)",
-                        "Homeless",
-                        "Drug users",
-                        "Alcohol users",
-                        "Tabacco users",
-                        "Underweight") ~ "Other people at risk", 
-        TRUE ~ "Others"),
-      levels = c("People living with HIV", "Household contacts", "Other people at risk")))
-
-df1$`Level of integration` <- factor(df1$`Level of integration`,
-                                     levels = c("No", "Partial", "Full"))
-
-df1$`HIV Prevalence` <- factor(df1$`HIV Prevalence`, 
-                               levels = c("Low", "Medium", "High"))
-
-saveRDS(df1, "../data_clean/df1.rds")
+  ungroup() |>dplyr::select(record_id, None, Any) |>summarise(sum1 = sum(None), sum2 = sum(Any))
 ```
 
 ```{r}
@@ -292,14 +209,12 @@ fig1d <- fig1("Level of integration") +
   
 ggsave("../results/fig1d.png", plot = fig1d, width = 18, height = 12, units = "cm", dpi = 300)
 
-
 fig.1.panel <- ggarrange(fig1a, fig1b, fig1c, fig1d,
                  common.legend = TRUE, 
                  ncol = 2, nrow = 2,
                  legend = "bottom", 
                  widths = c(1.6,1))
                  
-
 fig.1.panel
 
 ggsave("../results/fig1_panel.png", plot = fig.1.panel, width = 16, height = 16, units = "cm", dpi = 300)
@@ -308,42 +223,6 @@ ggsave("../results/fig1_panel.png", plot = fig.1.panel, width = 16, height = 16,
 # Figure 2
 
 Barriers to TPT administration: \*\*11.15 What are the most important barriers to initiating patients with HIV on TPT at this facility? Check all that apply\*\*  
-
-```{r}
-df2 <- df %>% 
-  dplyr::select(record_id, country, region, region_exact, tpt_barriers___77:tpt_barriers___88, HBC_ANY, HBC_TB,
-    HBC_TB_HIV, HBC_DR_TB, tbhiv_integration.factor, Income_group, Prev_cat.factor, ltbi_ligibility.factor) %>%
-  rename(
-         'No barriers' = tpt_barriers___77,
-         'Medication availability' = tpt_barriers___1,
-         'TB infection test stockouts' = tpt_barriers___2,
-         'Availability of diagnostics active TB' = tpt_barriers___3,
-         'Concerns drug resistance' = tpt_barriers___4,
-         'Increased workload' = tpt_barriers___5,
-         'Patients refuse TPT' = tpt_barriers___6,
-         'Access to HIV care service delivery'= tpt_barriers___7,
-         'Other barriers' = tpt_barriers___88,
-         'Level of integration' = tbhiv_integration.factor,
-         'Income Level' = Income_group, 
-         'HIV Prevalence' = Prev_cat.factor,
-         'LTBI testing' = ltbi_ligibility.factor) %>% 
-  mutate(across(everything(), ~ as.factor(.))) %>% 
-  pivot_longer(cols = -c(record_id, country, region, region_exact, HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB, `Level of integration`, `Income Level`, `HIV Prevalence`, `LTBI testing`),
-               names_to = "variable",
-               values_to = "category") %>% 
-  mutate(variable = as.factor(variable),
-         category = as.factor(ifelse(category == 1, "Yes", "No"))) 
-
-df2$`Level of integration` <- factor(df2$`Level of integration`,
-                                     levels = c("No", "Partial", "Full"))
-
-df2$`HIV Prevalence` <- factor(df2$`HIV Prevalence`, 
-                               levels = c("Low", "Medium", "High"))
-df2$variable <- factor(df2$variable,
-                       levels = c("Concerns drug resistance", "Medication availability", "TB infection test stockouts", "Increased workload","Availability of diagnostics active TB","Access to HIV care service delivery", "Patients refuse TPT", "No barriers", "Other barriers"))
-
-saveRDS(df2, "../data_clean/df2.rds")
-```
 
 ```{r, fig.cap="Figure 2: Proportion of clinics responding to the questions regarding specific boundaries to initiating patients with HIV on TPT at the clinic. Also, if somebody in the clinic received formal training for TPT."}
 fig.2 <- fig2("", pct = T)
@@ -361,20 +240,17 @@ fig2a <- fig2("HBC_ANY") + theme(strip.text.y.right = element_blank(),
       breaks = c(0, 1)) +
   labs(title = "a | Stratified by high TB burden countries")
   
-
 fig2b <- fig2("region") + theme(axis.text.y = element_blank(), 
                                 axis.title.x.bottom = element_blank()) +  scale_x_continuous(
       labels = function(x) paste0(format(x * 100, digits = 2), "%"),
       breaks = c(0, 1))+
     labs(title = "b | Stratified by region")
 
-
 fig2c <- fig2("Income Level") + theme(strip.text.y.right = element_blank(), 
                                       axis.title.x.bottom = element_blank()) +  scale_x_continuous(
       labels = function(x) paste0(format(x * 100, digits = 2), "%"),
       breaks = c(0, 1)) +
     labs(title = "c | Stratified by Income Level")
-
 
 fig2d <- fig2("HIV Prevalence") + theme(axis.text.y = element_blank(), 
                                         axis.title.x.bottom = element_blank()) +  scale_x_continuous(
@@ -390,20 +266,12 @@ fig2e <- fig2("Level of integration") +
     breaks = c(0, 1)) +
     labs(title = "e | Stratified by Level of Integration")
 
-#fig2f <- fig2("LTBI testing") + 
-  # theme( axis.text.y = element_blank(), 
-  #       axis.title.x.bottom = element_blank()) +  
-  # scale_x_continuous(
-  #   labels = function(x) paste0(format(x * 100, digits = 2), "%"),
-  #   breaks = c(0, 1))+
-  #   labs(title = "f | Stratified by LTBI testing")
-
 fig.2 <- ggarrange(fig2a, fig2b, fig2c, fig2d, fig2e, 
                  common.legend = TRUE, 
                  ncol = 2, nrow = 3,
                  legend = "bottom", 
                  widths = c(1.5, 1))
-fig.2
+
 ggsave("../results/fig2.png", plot = fig.2, width = 16, units = "cm")
 ```
 
@@ -411,34 +279,23 @@ ggsave("../results/fig2.png", plot = fig.2, width = 16, units = "cm")
 
 -   Proportion of sites who responded "Yes" to the following question: "11.6 Does this HIV clinic (or a co-located TB clinic) currently provide TB preventive therapy (TPT)?".
 
--   The points are located at the coordinates from the sites (from Google Maps).
+-   
 
--   (a) Location of sites, Adherence to any recommendation for (b) PLHIV, (c) other people at risk and (d) other people at risk.
+    (a) Location of sites, Adherence to any recommendation for (b) PLHIV, (c) other people at risk and (d) other people at risk.
 
 ```{r}
-#theme
-plain <- theme(
-  axis.text = element_blank(),
-  axis.line = element_blank(),
-  axis.ticks = element_blank(),
-  panel.border = element_blank(),
-  panel.grid = element_blank(),
-  axis.title = element_blank(),
-  panel.background = element_rect(fill = "white"),
-  plot.title = element_text(hjust = 0.5))
-
 #preperation
 
 coords <- read.csv("../data_clean/coordinates_sites.csv") %>%
-  separate(coord, into = c("lat", "long"), sep = ",", convert = TRUE) %>% 
+  separate(coord, into = c("lat", "long"), sep = ",", convert = TRUE) |>
   filter(record_id %in% df$record_id)
 
 world <- map_data("world") 
 
-df3 <- df1 %>% 
-  group_by(record_id, who_group) %>% 
-  dplyr::summarize(any_yes = ifelse(any(category == "Yes"), 1, 0), .groups = 'drop')  %>% 
-  left_join(df %>% dplyr::select(record_id, region_exact), by = "record_id") 
+df3 <- df1 |>
+  group_by(record_id, who_group) |>
+  dplyr::summarize(any_yes = ifelse(any(category == "Yes"), 1, 0), .groups = 'drop')  |>
+  left_join(df |>dplyr::select(record_id, region_exact), by = "record_id") 
 
 ## household ##
 
@@ -458,124 +315,12 @@ fig.3 <- ggarrange(fig3a, fig3b, fig3c,
                            common.legend = TRUE, 
                            legend = "right",   
                            ncol = 1)
-fig.3
 ggsave("../results/fig3.png", plot = fig.3, width = 12, height = 16, units = "cm", dpi = 300)
 ```
 
-# Figure 4
-
-Numbers of newly initiated TPT and newly intitated ART in a subset of sites, 2018-2022 (data from COVID-TB survey, MR214).
-
--   Nicolas will provide the figure
-
 # Figure 5
 
-Available treatment options of TPT regimens.
-
-```{r include=FALSE}
-code_trt <- function(adult_col, child_col, none_col, unknown_col) {
-  case_when(
-    adult_col == 1 & child_col == 1 ~ "Adults & Children",
-    adult_col == 1 ~ "Adults",
-    child_col == 1 ~ "Children",
-    none_col == 1 ~ "Not offered",
-    unknown_col == 1 ~ "Don't know",
-    TRUE ~ "Not offered" # the 6 that have a missing value do not provide tpt services, thus "None"
-  )
-}
-
-df5 <- df %>% 
-  dplyr::select(record_id, country, inh6_b___1:other_specify_b___3, region, region_exact, HBC_ANY, HBC_TB,
-    HBC_TB_HIV, HBC_DR_TB, tbhiv_integration.factor, Income_group, Prev_cat.factor, ltbi_ligibility.factor, tpt_training.factor, level.factor) %>% 
-  mutate(
-         record_id = as.character(record_id),
-         '6-month isoniazid (6H)' = 
-           code_trt(inh6_b___1, inh6_b___2, inh6_b___77, inh6_b___3),
-         '9-month isoniazid (9H)' = 
-           code_trt(inh9_b___1, inh9_b___2, inh9_b___77, inh9_b___3),
-         '12-month isoniazid (12H)' = 
-           code_trt(inh12_b___1, inh12_b___2, inh12_b___77, inh12_b___3),
-         '36/Lifetime isoniazid (36/Lifetime H)' = 
-           code_trt(inh36_b___1, inh36_b___2, inh36_b___77, inh36_b___3),
-         '3-month rifampicin (3R)' = 
-           code_trt(rif3_b___1, rif3_b___2, rif3_b___77, rif3_b___3),
-         '4-month rifampicin (4R)' = 
-           code_trt(rif4_b___1, rif4_b___2, rif4_b___77, rif4_b___3),
-         '3-month isoniazid-rifampicin (3HR)' = 
-           code_trt(inh_rif3_b___1, inh_rif3_b___2, inh_rif3_b___77, inh_rif3_b___3),
-         '4-month isoniazid-rifampicin (4HR)' = 
-           code_trt(inh_rif4_b___1, inh_rif4_b___2, inh_rif4_b___77, inh_rif4_b___3),
-         'Once-weekly isoniazid-rifapentine for 12 weeks (3HP)' = 
-           code_trt(hp3_12weeks_b___1, hp3_12weeks_b___2, hp3_12weeks_b___77, hp3_12weeks_b___3),
-         'Once-daily isoniazid-rifapentine for 1 month (1HP)' = 
-           code_trt(hp3_1month_b___1, hp3_1month_b___2, hp3_1month_b___77, hp3_1month_b___3),
-         'Regimens for MDR-TB exposure' = 
-           code_trt(mdrtb_specify_b___1, mdrtb_specify_b___2, mdrtb_specify_b___77,
-                    mdrtb_specify_b___3),
-         Other = 
-           code_trt(other_specify_b___1, other_specify_b___2, other_specify_b___77,
-                    other_specify_b___3),
-         `tpt_training.factor` = as.factor(case_when(`tpt_training.factor` %in% c(NA, "Dont Know") ~ NA,
-                                    TRUE ~ `tpt_training.factor`))) %>% 
-  dplyr::select(record_id, country, '6-month isoniazid (6H)':Other, region, region_exact, HBC_ANY, HBC_TB,
-    HBC_TB_HIV, HBC_DR_TB, tbhiv_integration.factor, Income_group, Prev_cat.factor, ltbi_ligibility.factor, level.factor, tpt_training.factor)  %>% 
-  rename('Level of integration' = tbhiv_integration.factor,
-         'Income Level' = Income_group, 
-         'HIV Prevalence' = Prev_cat.factor,
-         'LTBI testing' = ltbi_ligibility.factor,
-         'TPT training' = tpt_training.factor,
-        'Facility level of care' = level.factor) 
-
-df5$`Level of integration` <- factor(df5$`Level of integration`,
-                                     levels = c("No", "Partial", "Full"))
-
-df5$`HIV Prevalence` <- factor(df5$`HIV Prevalence`, 
-                               levels = c("Low", "Medium", "High")) 
-
-df5$`LTBI testing` <- relevel(df5$`LTBI testing`, ref = "No")
-
-df5$`TPT training` <- relevel(df5$`TPT training`, ref = "No")
-df5$`TPT training` <- droplevels(df5$`TPT training`)
-df5$`Facility level of care` <- relevel(df5$`Facility level of care`, ref = "Regional, provincial or university hospital")
-levels(df5$`Facility level of care`) <- c("Health centre", "District hospital", "Regional or provincial hospital", "Missing")
-
-df5b <- df5 %>% 
-  pivot_longer(
-    cols = 
-      -c(record_id, country, region, region_exact, HBC_ANY, HBC_TB, HBC_TB_HIV, HBC_DR_TB, `Level of integration`, 
-         `Income Level`, `HIV Prevalence`, `LTBI testing`, `Facility level of care`, `TPT training`),
-    names_to = "variable",
-    values_to = "category") %>% 
-  mutate(variable = fct(variable),
-         Regimen = case_when(variable %in% c("6-month isoniazid (6H)",
-                                                        "9-month isoniazid (9H)",
-                                                        "12-month isoniazid (12H)",
-                                                        "36/Lifetime isoniazid (36/Lifetime H)") ~ "INH-only based",
-                                        variable %in% c("3-month rifampicin (3R)",
-                                                        "4-month rifampicin (4R)",
-                                                        "3-month isoniazid-rifampicin (3HR)",
-                                                        "4-month isoniazid-rifampicin (4HR)",
-                                                        "Once-weekly isoniazid-rifapentine for 12 weeks (3HP)",
-                                                        "Once-daily isoniazid-rifapentine for 1 month (1HP)") ~ "RIF-based",
-                                        TRUE ~ "Others"),
-         Regimen = fct(Regimen, levels = c("INH-only based", "RIF-based", "Others")))
-
-df5b <- df5b %>%
-  group_by(variable, category) %>%
-  summarise(count = n(), .groups = "drop") %>%
-  mutate(total = sum(count), 
-         prop = count / total) %>%
-  ungroup() %>%
-  filter(category %in% c("Adults & Children", "Children", "Adults")) %>%
-  group_by(variable) %>%
-  summarise(prop_sum = sum(prop), .groups = "drop") %>%
-  right_join(df5b, by = "variable") %>%
-  mutate(variable = fct_reorder(variable, prop_sum))
-
-saveRDS(df5b, "../data_clean/df5.rds")
-```
-
-### Top 5 (Figure for the Manuscript)
+### Top 5
 
 ```{r}
 df5_top5 <- df5 %>%
@@ -592,7 +337,7 @@ df5_top5 <- df5 %>%
     Prop_yes = sum(Proportion[Response %in% c("Adults & Children", "Adults", "Children")]),
     .groups = 'drop'
   ) %>%
-  arrange(desc(Prop_yes)) %>% 
+  arrange(desc(Prop_yes)) |>
   slice_head(n = 5) 
 
 ordered_vars <- rev(df5_top5$Variable)
@@ -608,8 +353,8 @@ custom_colors <- c("Adults & Children" = "#8ac0ff",
 
 df5 %>%
   dplyr::select(`6-month isoniazid (6H)` : `Once-weekly isoniazid-rifapentine for 12 weeks (3HP)`) %>%
-  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Response") %>% 
-  filter(Variable %in% ordered_vars) %>% 
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Response") |>
+  filter(Variable %in% ordered_vars) |>
   mutate(Variable = factor(Variable, levels = ordered_vars),
          Variable = fct_recode(Variable, 
                           "Once-weekly isoniazid-rifapentine\nfor 12 weeks (3HP)" = "Once-weekly isoniazid-rifapentine for 12 weeks (3HP)")) %>%
@@ -636,7 +381,6 @@ df5 %>%
     geom_vline(xintercept = 0.5, linetype = "dashed", color = "white")
 ```
 
-
 ```{r}
 fig.5 <- fig5("")
 fig.5
@@ -646,7 +390,7 @@ ggsave("../results/fig5.png", plot = fig.5, width = 18, height = 12, units = "cm
 ### Supplementary table
 
 ```{r}
-df5 %>% 
+df5 |>
   tbl_summary(by = HBC_ANY,
               include = c(`6-month isoniazid (6H)`,
                           `9-month isoniazid (9H)`,
@@ -658,7 +402,7 @@ df5 %>%
                           `Once-weekly isoniazid-rifapentine for 12 weeks (3HP)`,
                           `Once-daily isoniazid-rifapentine for 1 month (1HP)`,
                           `Regimens for MDR-TB exposure`,
-                          Other)) %>% 
+                          Other)) |>
   modify_header(all_stat_cols() ~"**{level}**<br>N = {n}") 
 ```
 
@@ -681,14 +425,13 @@ df5_model <- df5 %>%
                                                         "36/Lifetime isoniazid (36/Lifetime H)"), ~ .x %in% c("Adults", "Children", "Adults & Children"))))
 
 df5_model$`Income Level` <- droplevels(df5_model$`Income Level`)
-
 df5_model$HBC_ANY <- relevel(df5_model$HBC_ANY, ref = "No")
 df5_model$region <- relevel(df5_model$region, ref = "Asia-Pacific")
 df5_model$`Level of integration` <- relevel(df5_model$`Level of integration`, ref = "Full")
 df5_model$`HIV Prevalence` <- relevel(df5_model$`HIV Prevalence`, ref = "High")
 df5_model$`Income Level` <- relevel(df5_model$`Income Level`, ref = "Upper middle")
 
-df5_model %>% 
+df5_model |>
   tbl_summary(include = c(
                           region, HBC_ANY, `Level of integration`, `Income Level`, `HIV Prevalence`, `LTBI testing`, `TPT training`, `Facility level of care`), 
               digits = list(everything() ~ c(0))) 
@@ -697,7 +440,6 @@ df5_model %>%
 #### Univariable
 
 ```{r, warning=FALSE, message=FALSE}
-
 df5_model %>%
     tbl_uvregression(include = c(`Level of integration`, 
                                  `Income Level`, 
@@ -713,11 +455,11 @@ df5_model %>%
       pvalue_fun = ~ifelse(. < 0.01, "<0.01", style_sigfig(., digits = 2)),
       exponentiate = TRUE,
       hide_n = TRUE, add_estimate_to_reference_rows = TRUE, label = list(region ~ "Region",
-                                                                         HBC_ANY ~ "High burden country")) %>% 
+                                                                         HBC_ANY ~ "High burden country")) |>
     modify_table_body(
-      ~mutate(.x, ci = ifelse(reference_row == TRUE, "Reference", ci))) %>% 
+      ~mutate(.x, ci = ifelse(reference_row == TRUE, "Reference", ci))) |>
   add_global_p()|>
-  as_gt()
+  as_gt() |> 
   gt::gtsave(filename = "../results/tbl_rif.docx")
 ```
 
@@ -776,7 +518,7 @@ fig.5.panel <- ggarrange(fig5a, fig5b, fig5c, fig5d,
                  ncol = 2, nrow = 2,
                  legend = "bottom", 
                  widths = c(1.8, 1))
-fig.5
+fig.5.panel
 
 ggsave("../results/fig5_panel.png", plot = fig.5.panel, width = 16, height = 16, units = "cm", dpi = 300)
 ```
@@ -786,46 +528,24 @@ ggsave("../results/fig5_panel.png", plot = fig.5.panel, width = 16, height = 16,
 ```{r}
 theme_gtsummary_journal(journal="jama")
 
-df6 <- df %>% 
-  dplyr::select(record_id, region, HBC_ANY, adultped.factor, rural.factor, level.factor, tbhiv_integration.factor)  %>% 
-  rename(`Population the center serves` = adultped.factor,
-         `Facility location` = rural.factor,
-         `Facility level of care`  = level.factor,
-         `Level of integrated TB/HIV services` = tbhiv_integration.factor) %>% 
-    mutate(`Facility level of care` = fct_drop(`Facility level of care`),
-           `Facility location` = fct_drop(`Facility location`)) %>% 
-  mutate(across(.cols = everything(), .fns = ~fct_na_value_to_level(., "Missing")))
-
-df6$HBC_ANY <- droplevels(df6$HBC_ANY)
-df6$region <- droplevels(df6$region)
-
-df6$`Level of integrated TB/HIV services` <- factor(df6$`Level of integrated TB/HIV services`,
-                                     levels = c("Full", "Partial", "No", "Missing"))
-
-levels(df6$`Facility level of care`) <- c("Health centre", "District hospital", "Regional or provincial hospital", "Missing")
-
-df6$`Level of integrated TB/HIV services` <- fct_drop(df6$`Level of integrated TB/HIV services`, only = "Other")
-
-levels(df6$`Population the center serves`) <- c("Adults", "Children", "Adults & Children", "Missing")
-
-tbl1_overall <- df6 %>% 
+tbl1_overall <- df6 |>
   tbl_summary(
               include = c(
                           `Population the center serves`, 
                           `Facility location`, 
                           `Facility level of care`, 
                           `Level of integrated TB/HIV services`),
-              digits = list(everything() ~ c(0))) %>%  
+              digits = list(everything() ~ c(0))) |> 
   modify_header(all_stat_cols(FALSE) ~ "N = {n}") 
 
-tbl1B <- df6 %>% 
+tbl1B <- df6 |>
   tbl_summary(by = region,
               include = c(
                           `Population the center serves`, 
                           `Facility location`, 
                           `Facility level of care`, 
                           `Level of integrated TB/HIV services`), 
-              digits = list(everything() ~ c(0))) %>% 
+              digits = list(everything() ~ c(0))) |>
    modify_header(all_stat_cols(FALSE) ~ "**{level}**<br>N = {n}")
 
 tbl_merge(
@@ -839,175 +559,30 @@ tbl_merge(
 
 ```{r}
 theme_gtsummary_journal(journal="jama")
-check <- df |> 
-  dplyr::select(ltbi_ligibility.factor, screen_oth.factor)
-
-df_ltbi_testing <- df %>% 
-  dplyr::select(record_id, ltbi_testing___0, ltbi_testing___1, ltbi_testing___2, 
-                ltbi_testing___88, ltbi_testing_oth,ltbi_ligibility.factor)  %>% 
-  mutate(`Ltbi testing` = case_when(ltbi_testing___0 == 1 ~ "None",
-                                    ltbi_testing___1 == 1 & ltbi_testing___2 == 1 ~ "Both",
-                                    ltbi_testing___1 == 1 ~ "Interferon-Gamma Release Assays blood test",
-                                    ltbi_testing___2 == 1 ~ "Tuberculin Skin Test",
-                                    ltbi_testing_oth %in% 
-                                    c("TST in research setting", "Only for research studies") ~ "Tuberculin Skin Test",
-                                    ltbi_testing_oth != "" ~ "None",
-                                    TRUE ~ NA)) |> 
-  dplyr::select(record_id, `Ltbi testing`)
-
-df7 <- df %>% 
-  dplyr::select(record_id, region, HBC_ANY, tb_symptom_screen.factor, screen_cough.factor, screen_fever.factor,
-                screen_nightsweats.factor, screen_weightloss.factor, screen_contact.factor, screen_fatigue.factor,
-                screen_oth.factor, ltbi_ligibility.factor, tpt_training.factor) %>% 
-  left_join(df_ltbi_testing, by = "record_id") %>% 
-  rename(`TB symptom screening` = tb_symptom_screen.factor,
-         `Cough` = screen_cough.factor,
-         `Fever`  = screen_fever.factor,
-         `Night sweats` = screen_nightsweats.factor,
-         `Weight loss` = screen_weightloss.factor,
-         `Contact with TB patient` = screen_contact.factor,
-         `Fatigue/lethargy` = screen_fatigue.factor,
-         Other = screen_oth.factor,
-         `TB infection testing to check eligibility of PLHIV to receive TPT`= ltbi_ligibility.factor,
-         `Anyone attended a formal training on TPT provision` = tpt_training.factor,
-         `Which LTBI testing is offered` = `Ltbi testing`)  %>% 
-  mutate(across(.cols = everything(), .fns = ~fct_na_value_to_level(., "Missing")),
-         across(`Cough`:Other, .fns = ~fct_recode(., `Don't know` = "Dont Know")),
-         `TB infection testing to check eligibility of PLHIV to receive TPT` =
-           case_when(`TB infection testing to check eligibility of PLHIV to receive TPT` == "Yes" & `Which LTBI testing is offered` != "None" ~ `Which LTBI testing is offered`,
-                     `TB infection testing to check eligibility of PLHIV to receive TPT` == "No" ~ "No",
-                     TRUE ~ "No"))
-
-# TB screening
-df7$`TB symptom screening` <- factor(df7$`TB symptom screening`, levels = c("Yes, at every appointment", "Yes, at the time of enrollment into HIV care at this facility only","Other, specify: {tb_symptom_screen_oth}", "Missing"), labels = c("Yes, at every appointment", "Yes, at the time of enrollment only","During the follow up if any symptoms", "Missing")) #checked the response
-df7$`TB symptom screening` <- droplevels(df7$`TB symptom screening`)
-
-# tpt training
-df7$`Anyone attended a formal training on TPT provision` <- droplevels(df7$`Anyone attended a formal training on TPT provision`)
-
-# ltbi testing
-tabyl(df7$`TB infection testing to check eligibility of PLHIV to receive TPT`)
-df7$`TB infection testing to check eligibility of PLHIV to receive TPT` <- factor(df7$`TB infection testing to check eligibility of PLHIV to receive TPT`, levels = c("Interferon-Gamma Release Assays blood test","Tuberculin Skin Test", "Both", "Other", "No"))
-
-df7$`TB infection testing to check eligibility of PLHIV to receive TPT` <- droplevels(df7$`TB infection testing to check eligibility of PLHIV to receive TPT`)
-
-df7$region <- droplevels(df7$region)
-
-df7$`Which LTBI testing is offered` <- factor(df7$`Which LTBI testing is offered`, levels = c("Tuberculin Skin Test", "Interferon-Gamma Release Assays blood test", "Both",  "Other", "None" ,"Missing" ))
-tabyl(df$tb_symptom_screen_oth)
-
-df7$`Which LTBI testing is offered` <- droplevels(df7$`Which LTBI testing is offered`)
 
 ### Base table without screening ###
 
-tbl2_overall <- df7 %>% 
+tbl2_overall <- df7 |>
   tbl_summary(
               include = c(`TB symptom screening`, 
                           `Anyone attended a formal training on TPT provision`,
                           `TB infection testing to check eligibility of PLHIV to receive TPT`),
-              digits = list(everything() ~ c(0))) %>% 
+              digits = list(everything() ~ c(0))) |>
   modify_header(stat_0 ~ "N = {n}")
 
-tbl2B <- df7 %>% 
+tbl2B <- df7 |>
   tbl_summary(by = region,
               include = c(`TB symptom screening`, 
                           `Anyone attended a formal training on TPT provision`,
                           `TB infection testing to check eligibility of PLHIV to receive TPT`),
-              digits = list(everything() ~ c(0))) %>% 
+              digits = list(everything() ~ c(0))) |>
   modify_header(all_stat_cols(FALSE) ~ "**{level}**<br>N = {n}")
 
 tbl2a <- tbl_merge(
-  tbls = list(tbl2_overall,tbl2B),
+  tbls = list(tbl2_overall, tbl2B),
   tab_spanner = c("Overall", "Region"))|>
   as_gt() |>
   gt::gtsave(filename = "../results/tbl2.docx")
-
-#modify_spanning_header(tab_spanner = c("Overall", "High burden country", "Region"))
-
-
-### Table for Screening ###
-
-# Overall
-# ov <- df7 %>% 
-#   dplyr::select(record_id,`Cough`:Other) %>% 
-#   pivot_longer(cols = -c(record_id), names_to = "TB symptom screening") %>% 
-#   dplyr::select(-record_id) %>% 
-#   mutate(stage = factor(`TB symptom screening`, levels = c("Contact with TB patient", "Cough", "Fatigue/lethargy", "Fever", "Night sweats", "Weight loss", "Other"))) %>%
-#   tbl_summary(by = value, percent = "row") %>% 
-#   modify_header(stat_1 ~ "N = {nrow(df7)}") %>% 
-#   modify_column_hide(c(stat_2, stat_3, stat_4)) 
-# ov
-# # Region Africa
-# 
-# reg_af <- df7 %>% 
-#   dplyr::select(record_id, region , `Cough`:Other ) %>% 
-#   filter(region == "Africa") %>% 
-#   pivot_longer(cols = -c(record_id, region), names_to = "TB symptom screening") %>% 
-#   dplyr::select(-record_id, -region) %>% 
-#   tbl_summary(by = value, percent = "row") %>% 
-#   modify_header(stat_1 ~ "**Africa**<br>N = {nrow(df7 %>% filter(region == 'Africa'))}") %>% 
-#   modify_column_hide(c(stat_2, stat_3, stat_4))
-# 
-# # Asia-Pacific
-# 
-# reg_as <- df7 %>% 
-#   dplyr::select(record_id, region , `Cough`:Other ) %>% 
-#   filter(region == "Asia-Pacific") %>% 
-#   pivot_longer(cols = -c(record_id, region), names_to = "TB symptom screening") %>% 
-#   dplyr::select(-record_id, -region) %>% 
-#   tbl_summary(by = value, percent = "row") %>% 
-#   modify_header(stat_1 ~ "**Asia-Pacific**<br>N = {nrow(df7 %>% filter(region == 'Asia-Pacific'))}") %>% 
-#   modify_column_hide(c(stat_2, stat_3, stat_4))
-# 
-# # Latin America
-# reg_lat <- df7 %>% 
-#   dplyr::select(record_id, region , `Cough`:Other ) %>% 
-#   filter(region == "Latin America") %>% 
-#   pivot_longer(cols = -c(record_id, region), names_to = "TB symptom screening") %>% 
-#   dplyr::select(-record_id, -region) %>% 
-#   tbl_summary(by = value, percent = "row") %>% 
-#   modify_header(stat_1 ~ "**Latin America**<br>N = {nrow(df7 %>% filter(region == 'Latin America'))}") %>% 
-#   modify_column_hide(c(stat_2, stat_3, stat_4))
-# 
-# tbl2b <- tbl_merge(
-#   tbls = list(ov, reg_af, reg_as, reg_lat),
-#   tab_spanner = c("Overall",  "Region", "Region", "Region")) 
-# 
-# #' in order for tbl_stack to work, they have to have the same internal structure
-# #' issue was, that the colnames were fine, but the tables were structured differently 
-# #show_header_names(tbl2b)
-# #show_header_names(tbl2a)
-# #tbl2a: OV: sta01, reg: sta12,22,32
-# 
-# tbl2b$table_body <- tbl2b$table_body %>%
-#   dplyr::select(-stat_3_2, -stat_2_2) %>% 
-#   rename(stat_0_1 = stat_1_1,
-#          stat_1_2 = stat_1_2,
-#          stat_2_2 = stat_1_3,
-#          stat_3_2 = stat_1_4)
-# 
-# tbl_stack(tbls = list(tbl2a, tbl2b), quiet = T) |>
-#   as_gt() |> 
-#   gt::gtsave(filename = "../results/tbl2.docx")
-```
-
-Check if we really can combine Table 2 as suggested: 
-
-```{r, include=FALSE}
-check <- df7 %>% 
-  dplyr::select(record_id, `LTBI testing to check eligibility of PLHIV to receive TPT`, `Which LTBI testing is offered?`) 
-
-check$`LTBI testing to check eligibility of PLHIV to receive TPT` <- droplevels(check$`LTBI testing to check eligibility of PLHIV to receive TPT`)
-check$`Which LTBI testing is offered?` <- droplevels(check$`Which LTBI testing is offered?`)
-check$`Which LTBI testing is offered?` <- factor(check$`Which LTBI testing is offered?`, levels = c("Both", "Interferon-Gamma Release Assays (IGRAs) blood test","Tuberculin Skin Test (TST)", "Other", "None"))
-
-check %>% tbl_summary(by = `LTBI testing to check eligibility of PLHIV to receive TPT`, include = `Which LTBI testing is offered?`) 
-
-check2 <- df %>% dplyr::select(record_id, region, name, ltbi_testing___0, ltbi_ligibility.factor, tbhiv_integration.factor) %>% 
-  filter(ltbi_testing___0 == 1,
-         ltbi_ligibility.factor == "Yes")
-
-check2
 ```
 
 # Table 3
@@ -1027,11 +602,11 @@ check2
 -   I use univariate firth logistic regression models, which applies a penalized likelihood approach, which adjusts the likelihood function to prevent the infinite likelihood estimates that result from complete seperation.
 
 ```{r}
-df7 <- df1 %>% 
-  group_by(record_id, who_group) %>% 
+df7 <- df1 |>
+  group_by(record_id, who_group) |>
   dplyr::summarize(any_yes = ifelse(any(category == "Yes"), 1, 0), .groups = 'drop',
-                   sum_yes = sum(category == "Yes"))   %>% 
-  left_join(df %>% dplyr::select(record_id, tbhiv_integration.factor, Income_group, Prev_cat.factor, HBC_ANY, tpt_training.factor, level.factor, region, ltbi_ligibility.factor), by = "record_id") %>% 
+                   sum_yes = sum(category == "Yes"))   |>
+  left_join(df |>dplyr::select(record_id, tbhiv_integration.factor, Income_group, Prev_cat.factor, HBC_ANY, tpt_training.factor, level.factor, region, ltbi_ligibility.factor), by = "record_id") |>
   rename(
     'Level of integration' = tbhiv_integration.factor,
     'Income Level' = Income_group, 
@@ -1040,14 +615,14 @@ df7 <- df1 %>%
     'TPT training' = tpt_training.factor,
     'Facility level of care' = level.factor,
     'Region' = region,
-    'LTBI testing to determine eligibility of PLHIV to receive TPT' = ltbi_ligibility.factor) %>% 
+    'LTBI testing to determine eligibility of PLHIV to receive TPT' = ltbi_ligibility.factor) |>
   mutate(`Income Level` = as.factor(`Income Level`),
          `TPT training` = as.factor(case_when(`TPT training` %in% c(NA, "Dont Know") ~ NA,
                                     TRUE ~ `TPT training`)))
 
 df7$`Level of integration` <- relevel(df7$`Level of integration`, ref = "No")
 df7$`Income Level` <- relevel(df7$`Income Level`, ref = "Low")
-df7$`HIV Prevalence` <- relevel(df7$`HIV Prevalence`, ref = "Low (<1%)")
+df7$`HIV Prevalence` <- relevel(df7$`HIV Prevalence`, ref = "Low")
 df7$`TPT training` <- relevel(df7$`TPT training`, ref = "No")
 df7$`TPT training` <- droplevels(df7$`TPT training`)
 df7$`Facility level of care` <- relevel(df7$`Facility level of care`, ref = "Regional, provincial or university hospital")
@@ -1061,14 +636,16 @@ df7$`High burden country` <- factor(df7$`High burden country`,
 df7$`High burden country` <- relevel(df7$`High burden country`, ref = "No")
 df7$`Income Level` <- droplevels(df7$`Income Level`)
 
-plhiv <- df7 %>% filter(who_group == "People living with HIV") %>% 
-  dplyr::select(-record_id, -who_group) %>% 
+plhiv <- df7 |>filter(who_group == "People living with HIV") |>
+  dplyr::select(-record_id, -who_group) |>
   mutate(sum_yes = factor(sum_yes,ordered = T))
-household <- df7 %>% filter(who_group == "Household contacts") %>% 
-  dplyr::select(-record_id, -who_group) %>% 
+
+household <- df7 |>filter(who_group == "Household contacts") |>
+  dplyr::select(-record_id, -who_group) |>
   mutate(sum_yes = factor(sum_yes,ordered = T))
-oPaR <- df7 %>% filter(who_group == "Other people at risk") %>% 
-  dplyr::select(-record_id, -who_group) %>% 
+
+oPaR <- df7 |>filter(who_group == "Other people at risk") |>
+  dplyr::select(-record_id, -who_group) |>
   mutate(sum_yes = factor(sum_yes,ordered = T),
          sum_yes = factor(case_when(sum_yes %in% c("8","9","10","11") ~ "High",
                                     sum_yes %in% c("4","5","6", "7") ~ "Medium",
@@ -1078,98 +655,19 @@ oPaR <- df7 %>% filter(who_group == "Other people at risk") %>%
 oPaR$sum_yes <- factor(oPaR$sum_yes, levels = c("No", "Low", "Medium", "High"))
 ```
 
-### Multivariable
-
-```{r message=FALSE, warning=FALSE, include=FALSE}
-theme_gtsummary_journal(journal="jama")
-
-fit_model_mult <- function(data) {
-  glm(any_yes ~ 
-        `Level of integration` + 
-        `Income Level` + 
-        `High burden country` + 
-        `TPT training` +
-        `HIV Prevalence` +
-        `Facility level of care` + 
-        `Region` +
-        `LTBI testing to determine eligibility of PLHIV to receive TPT`, 
-      data = data, 
-      family = binomial(),
-      method = "brglmFit") %>% 
-    tbl_regression(exponentiate = TRUE, 
-                   pvalue_fun = ~style_sigfig(., digits = 2), add_estimate_to_reference_rows = TRUE) %>%  
-    bold_labels() %>% 
-    modify_table_body(
-      ~mutate(.x, ci = ifelse(reference_row == TRUE, "Reference", ci))) %>% 
-    add_global_p()
-}
-
-dataset_list <- list(plhiv = plhiv %>% dplyr::select(-sum_yes), 
-                     household = household %>% dplyr::select(-sum_yes), 
-                     oPaR = oPaR %>% dplyr::select(-sum_yes))
-
-tbls <- lapply(dataset_list, fit_model_mult) 
-
-tbl3multi <- tbl_merge(
-  tbls = tbls,
-  tab_spanner = c("People living with HIV", "Household contacts", "Other people at risk"))
-
-tbl_merge(
-  tbls = tbls,
-  tab_spanner = c("People living with HIV", "Household contacts", "Other people at risk"))
-```
-
-### Univariable
-
-```{r, warning=FALSE, message=FALSE, include=FALSE}
-theme_gtsummary_journal(journal="jama")
-reset_gtsummary_theme()
-
-fit_model_uni <- function(data) {
-  data %>%
-    tbl_uvregression(
-      method = glm,
-      y = any_yes,
-      method.args = list(family = binomial(link= "logit"), method = "brglmFit"),
-      pvalue_fun = ~ifelse(. < 0.01, "<0.01", style_sigfig(., digits = 2)),
-      exponentiate = TRUE,
-      hide_n = TRUE, add_estimate_to_reference_rows = TRUE
-    ) %>% 
-    modify_table_body(
-      ~mutate(.x, ci = ifelse(reference_row == TRUE, "Reference", ci))
-    ) %>% 
-    add_global_p()
-}
-
-dataset_list <- list(plhiv = plhiv %>% dplyr::select(-sum_yes), 
-                     household = household %>% dplyr::select(-sum_yes), 
-                     oPaR = oPaR %>% dplyr::select(-sum_yes))
-
-tbls <- lapply(dataset_list, fit_model_uni)
-
-tbl3uni <- tbl_merge(
-  tbls = tbls,
-  tab_spanner = c("People living with HIV", "Household contacts", "Other people at risk")) 
-
-tbl_merge(
-  tbls = tbls,
-  tab_spanner = c("People living with HIV", "Household contacts", "Other people at risk")) 
-
-# could use as_flextable to export the table
-```
-
 ### Binomial
 
-In the end this is probably the model that makes the most sense. For each record_id we have the number of recommendations adhered to (sum_yes) and the number of recommendations not adhered to (sum_no). We can model this as a binomial distribution with the number of trials being the sum of the two and the number of successes being the sum_yes. 
+In the end this is probably the model that makes the most sense. For each record_id we have the number of recommendations adhered to (sum_yes) and the number of recommendations not adhered to (sum_no). We can model this as a binomial distribution with the number of trials being the sum of the two and the number of successes being the sum_yes.
 
 ```{r}
-df7_binomial <- df1 %>% 
-  mutate(Yes = ifelse(category == "Yes",1,0),
-         No = ifelse(category == "No",1,0)) %>%
-  group_by(record_id, who_group) %>% 
+df7_binomial <- df1 |>
+  mutate(Yes = ifelse(category == "Yes", 1, 0),
+         No = ifelse(category == "No", 1, 0)) %>%
+  group_by(record_id, who_group) |>
   dplyr::summarize(yes = sum(Yes),
-                   no = sum(No)) %>% 
-  left_join(df %>% dplyr::select(record_id, tbhiv_integration.factor, Income_group, Prev_cat.factor, HBC_ANY, tpt_training.factor, level.factor, region), by = "record_id") %>% 
+                   no = sum(No), .groups = "drop") |>
+  left_join(df |> 
+              dplyr::select(record_id, tbhiv_integration.factor, Income_group, Prev_cat.factor, HBC_ANY, tpt_training.factor, level.factor, region), by = "record_id") |>
   rename(
     'Level of integration' = tbhiv_integration.factor,
     'Income Level' = Income_group, 
@@ -1177,12 +675,12 @@ df7_binomial <- df1 %>%
     'High burden country' = HBC_ANY,
     'TPT training' = tpt_training.factor,
     'Facility level of care' = level.factor,
-    'Region' = region
-    #'LTBI testing to determine eligibility of PLHIV to receive TPT' = ltbi_ligibility.factor
-    ) %>% 
+    'Region' = region) |>
   mutate(`Income Level` = as.factor(`Income Level`),
          `TPT training` = as.factor(case_when(`TPT training` %in% c(NA, "Dont Know") ~ NA,
-                                    TRUE ~ `TPT training`))) %>% ungroup()
+                                    TRUE ~ `TPT training`))) |> 
+  ungroup()
+
 df7_binomial$`Level of integration` <- relevel(df7_binomial$`Level of integration`, ref = "No")
 df7_binomial$`Income Level` <- relevel(df7_binomial$`Income Level`, ref = "Upper middle")
 df7_binomial$`HIV Prevalence` <- relevel(df7_binomial$`HIV Prevalence`, ref = "Low")
@@ -1191,32 +689,20 @@ df7_binomial$`TPT training` <- droplevels(df7_binomial$`TPT training`)
 df7_binomial$`Facility level of care` <- relevel(df7_binomial$`Facility level of care`, ref = "District hospital")
 df7_binomial$`Facility level of care` <- droplevels(df7_binomial$`Facility level of care`)
 df7_binomial$Region <- relevel(df7_binomial$Region, ref = "Africa")
-#df7_binomial$`LTBI testing to determine eligibility of PLHIV to receive TPT` <- relevel(df7_binomial$`LTBI testing to determine eligibility of PLHIV to receive TPT`, ref = "No")
-      # new labels
 df7_binomial$`High burden country` <- relevel(df7_binomial$`High burden country`, ref = "No")
 df7_binomial$`Income Level` <- droplevels(df7_binomial$`Income Level`)
 
-plhiv_binomial <- df7_binomial %>% filter(who_group == "People living with HIV") %>% 
+plhiv_binomial <- df7_binomial |> 
+  filter(who_group == "People living with HIV") |>
   dplyr::select(-record_id, -who_group)
 
-household_binomial <- df7_binomial %>% filter(who_group == "Household contacts") %>% 
+household_binomial <- df7_binomial |>
+  filter(who_group == "Household contacts") |>
   dplyr::select(-record_id,-who_group)
 
-oPaR_binomial <- df7_binomial %>% filter(who_group == "Other people at risk") %>% 
+oPaR_binomial <- df7_binomial |>
+  filter(who_group == "Other people at risk") |>
   dplyr::select(-record_id, -who_group) 
-
-plhiv_binomial %>% 
-  tbl_uvregression(
-      y = cbind(yes, no),
-    formula = "{y} ~ {x}",
-    exponentiate = TRUE,
-    method = glm,
-    method.args = list(family = binomial(link= "logit")),
-       pvalue_fun = ~ifelse(. < 0.001, "<0.001", style_sigfig(., digits = 2)),
-       hide_n = TRUE, 
-       add_estimate_to_reference_rows = TRUE
-     ) %>% 
-  add_global_p()
 
 fit_model_uni_binomial <- function(data) {
   data %>%
@@ -1229,10 +715,10 @@ fit_model_uni_binomial <- function(data) {
        pvalue_fun = ~ifelse(. < 0.001, "<0.001", style_sigfig(., digits = 2)),
        hide_n = TRUE, 
        add_estimate_to_reference_rows = TRUE
-     ) %>% 
+     ) |>
      modify_table_body(
        ~mutate(.x, ci = ifelse(reference_row == TRUE, "Reference", ci))
-     ) %>% 
+     ) |>
      add_global_p()
 }
 
@@ -1246,141 +732,116 @@ tbls_binom <- lapply(dataset_list_binomial, fit_model_uni_binomial)
 tbl_merge(
   tbls = tbls_binom,
   tab_spanner = c("People living with HIV", "Household contacts", "Other people at risk")) |> 
-  as_gt() |>
+  as_gt() |> 
   gt::gtsave(filename = "../results/tbl3_binomial.docx")
 ```
 
 # Results for Manuscript
 
-```{r}
-check <- df2 %>% filter(variable == "Medication availability")
-table(check$category)
-```
+## Summary
 
-tpt implementation per region
-```{r}
-readRDS("../data_clean/data_clean.rds") %>% group_by(region) %>% summarise(prop = sum(tpt_prov)/n())
-```
+-   Of 172 HIV clinics surveyed, 142 (82%) were in Africa, 22 (13%) in the Asia-Pacific and 8 (5%) in Latin America; 108 (63%) were located in urban areas.
 
-proportion per who group
+    -   See Table 1
 
-```{r}
-prop1 <- df1 %>% 
-  group_by(who_group, variable) %>% 
-  dplyr::summarize(sum = sum(category == "Yes"),
-    prop = round(sum(category == "Yes") / n(),2)) %>% 
-  ungroup()
+-   Twenty-nine (17%) clinics reported using tuberculin skin testing and/or the interferon-gamma release assays to determine TPT eligibility.
 
-prop2 <- prop1 %>% 
-  group_by(who_group) %>% 
-  dplyr::summarize(mean_n = mean(sum),
-    mean_prop = mean(prop)) %>% 
-  ungroup()
-  
-```
+    -   See Table 2 (TB infection testing to check eligibility of PLHIV to receive TPT) —\> any of the first 3 resonses (3 + 14 + 12)
 
-```{r}
-df2 %>% 
-  group_by(variable) %>% 
-  summarize(sum = sum(category == "Yes"),
-    prop = round(sum(category == "Yes") / n(),2))
-```
+-    After ruling out active TB, TPT was reportedly offered to people living with HIV (PLWH) (102 clinics, 60%), household contacts of individuals with active TB (120 clinics, 70%), and other high-risk populations such as health care workers (48 clinics, 28%).
 
-inh/rif
-```{r}
-table(df5_model$RIF, df5_model$region)
-table(df5_model$INH, df5_model$`Income Level`)
-tabyl(df5_model$INH)
-tabyl(df5_model$RIF)
+    ```{r}
+    prop1 <- df1 |>
+      group_by(who_group, variable) |>
+      dplyr::summarize(sum = sum(category == "Yes"),
+        prop = round(sum(category == "Yes") / n(),2),.groups = "drop") 
 
-df5_model %>% 
-  group_by(region) %>% 
-  summarize(
-    total = n(),
-    count = sum(INH == 1),
-    proportion = round(count / total,2))
+    prop2 <- prop1 |>
+      group_by(who_group) |>
+      dplyr::summarize(mean_n = mean(sum),
+        mean_prop = mean(prop)) |>
+      ungroup()
+    ```
 
-"Once-weekly isoniazid-rifapentine and 3-month isoniazid-rifampicine were more commonly offered in high TB burden countries"
+-   Clinics reported use of isoniazid-based (160 clinics, 93%), and shorter rifamycin-based (129 clinics, 75%) TPT regimens. Reported barriers to TPT initiation included patient refusal at 71 (41%) and drug shortages at 67 (39%) clinics.
 
-df5_model %>% group_by(HBC_ANY) %>%
-  summarize(
-    total = n(),
-    count = sum(`Once-weekly isoniazid-rifapentine for 12 weeks (3HP)` %in% c("Adults", "Adults & Children", "Children")),
-    proportion = round(count / total, 2)) %>% gtsummary::tbl_uvregression(
-      method = glm,
-      include = c(HBC_ANY),
-      y = cbind(count, total - count),
-      method.args = list(family = binomial(link = "logit")),
-      exponentiate = TRUE,
-      pvalue_fun = ~style_pvalue(.x, digits = 2))
+    ```{r}
+    tabyl(df5_model$INH)
+    tabyl(df5_model$RIF)
 
-df5_model %>% group_by(HBC_ANY) %>%
-  summarize(
-    total = n(),
-    count = sum(`3-month isoniazid-rifampicin (3HR)` %in% c("Adults", "Adults & Children", "Children")),
-    proportion = round(count / total, 2)) %>% gtsummary::tbl_uvregression(
-      method = glm,
-      include = c(HBC_ANY),
-      y = cbind(count, total - count),
-      method.args = list(family = binomial(link = "logit")),
-      exponentiate = TRUE,
-      pvalue_fun = ~style_pvalue(.x, digits = 2))
-```
+    df2 |> 
+      filter(variable == "Patients refuse TPT") |>
+      tabyl(category)
 
-The 6-month isoniazid monotherapy TPT regimen was the most widely offered (xx, xx%), followed by the 3-month once-weekly isoniazid-rifapentine regimen (xx, xx%). 
+    df2 |> 
+      filter(variable == "Medication availability") |>
+      tabyl(category)
+    ```
+
+-   Of the remaining 172 clinics providing TPT, 16 (9%) were in West Africa, 24 (14%) in Central Africa, 71 (41%) in East Africa, 31 (18%) in Southern Africa, 22 (27%) in Asia-Pacific, and 8 (5%) in Latin America and the Caribbean. Most clinics were in urban settings (108, 63%) and fully integrated TB care as part of HIV services was available at 107 clinics (62%) ([Table 1]{.underline}).
+
+    -   See Table 1 and here:
 
 ```{r}
-df5 %>% dplyr::select(record_id, `6-month isoniazid (6H)`, `Once-weekly isoniazid-rifapentine for 12 weeks (3HP)`, `3-month rifampicin (3R)`) %>% 
-  mutate(`6-month isoniazid (6H)` = ifelse(`6-month isoniazid (6H)` %in% c("Adults", "Adults & Children", "Children"),1,0),
-         `Once-weekly isoniazid-rifapentine for 12 weeks (3HP)` = ifelse(`Once-weekly isoniazid-rifapentine for 12 weeks (3HP)` %in% c("Adults", "Adults & Children", "Children"),1,0),
-         `3-month rifampicin (3R)`= ifelse(`3-month rifampicin (3R)` %in% c("Adults", "Adults & Children", "Children"),1,0)) %>% 
-  summarise(sum_6H = sum(`6-month isoniazid (6H)`),
-            prop_6H = round(sum_6H / nrow(df5),2),
-            sum_3HP = sum(`Once-weekly isoniazid-rifapentine for 12 weeks (3HP)`),
-            prop_3HP = round(sum_3HP / nrow(df5),2),
-            sum_3R = sum(`3-month rifampicin (3R)`),
-            prop_3R = round(sum_3R / nrow(df5),2),)
-
+df |> 
+  group_by(region_exact) |> 
+  summarise(n = n(), prop = round(n / nrow(df),2))
 ```
 
-high burden comparison
+-   In providing TPT, almost all clinics (171/172) reported using symptom screening for identifying patients with active TB. TB infection testing for TPT eligibility determination among PLWH was done in 29 (23%) clinics, ranging from 12% in Africa, 36% in Asia-Pacific, to 50% in Latin America. Among clinics with TB infection testing, 14/29 (48%) used tuberculin skin testing, 3 (10%) interferon-gamma release assays, and 12 (41%) both ([Table 2]{.underline}).
 
-```{r}
-# I use logistic regression to compare the odds of offering TPT to household contacts in high burden countries compared to non-high burden countries
-hbc_tpt<- df1 %>%
-  group_by(HBC_ANY, who_group) %>% 
-   summarize(sum = sum(category == "Yes"),
-             n = n(),
-    prop = round(sum(category == "Yes") / n(),2)) 
+    ```{r}
+    round(14/29,2)
+    round(3/29,2)
+    round(12/29,2)
 
-glm(cbind(sum, n - sum) ~ HBC_ANY, data = hbc_household %>% filter(who_group == "Household contacts"), family = binomial()) %>% 
-  tbl_regression(exponentiate = TRUE, pvalue_fun = ~style_sigfig(., digits = 2), add_estimate_to_reference_rows = TRUE)
+    17/142 #12%
+    8/22 #36%
+    4/8 #50%
+    ```
 
-glm(cbind(sum, n - sum) ~ HBC_ANY, data = hbc_household %>% filter(who_group == "Other people at risk"), family = binomial()) %>% 
-  tbl_regression(exponentiate = TRUE, pvalue_fun = ~style_sigfig(., digits = 2), add_estimate_to_reference_rows = TRUE)
-```
+-   Most HIV care clinics reported providing TPT to PLHIV (mean across subgroups: 102, 60%), and to household contacts of people with active TB (mean across subgroups: 120, 70%). TPT was less often provided to other populations at risk (mean across subgroups: 48, 27%) who were also eligible for TPT regardless of their HIV status, including health care workers at 90 (51%), prisoners at 81 (46%) and immigrants from high TB burden countries at 62 (35%) clinics ([Figure 1]{.underline}, [Figure 2]{.underline}).
 
-hiv prevalence 
+    ```{r}
+    prop1 <- df1 |>
+      group_by(who_group, variable) |>
+      dplyr::summarize(sum = sum(category == "Yes"),
+        prop = round(sum(category == "Yes") / n(),2),.groups = "drop") 
 
-```{r}
-hiv_comp <- df1 %>%
-  mutate(`HIV Prevalence` =  case_when(`HIV Prevalence` %in% c("Low (<1%)", "Middle (1-5%)") ~ "Low", TRUE ~ "High")) %>%
-  group_by(`HIV Prevalence`, who_group) %>% 
-   summarize(sum = sum(category == "Yes"),
-             n = n(),
-    prop = round(sum(category == "Yes") / n(),2)) %>% 
-  filter(who_group == "Household contacts")
+    prop2 <- prop1 |>
+      group_by(who_group) |>
+      dplyr::summarize(mean_n = mean(sum),
+        mean_prop = mean(prop)) |>
+      ungroup()
+    ```
 
-x_values <- as.numeric(hiv_comp$sum)
-n_values <- as.numeric(hiv_comp$n)
-prop_test_result <- prop.test(x = x_values, n = n_values)
-print(prop_test_result)
+-   The 6-month isoniazid monotherapy TPT regimen was the most widely offered (155, 90%), followed by the 3-month once-weekly isoniazid-rifapentine regimen (110, 64%). Other short rifamycin-based regimens such as 3-month rifampicin monotherapy were available at 11 (6%) clinics ([Figure 3]{.underline}).
 
-```
+    ```{r}
+    df5 |> dplyr::select(record_id, `6-month isoniazid (6H)`, `Once-weekly isoniazid-rifapentine for 12 weeks (3HP)`, `3-month rifampicin (3R)`) |>
+      mutate(`6-month isoniazid (6H)` = ifelse(`6-month isoniazid (6H)` %in% c("Adults", "Adults & Children", "Children"),1,0),
+             `Once-weekly isoniazid-rifapentine for 12 weeks (3HP)` = ifelse(`Once-weekly isoniazid-rifapentine for 12 weeks (3HP)` %in% c("Adults", "Adults & Children", "Children"), 1, 0),
+             `3-month rifampicin (3R)`= ifelse(`3-month rifampicin (3R)` %in% c("Adults", "Adults & Children", "Children"),1,0)) |>
+      summarise(sum_6H = sum(`6-month isoniazid (6H)`),
+                prop_6H = round(sum_6H / nrow(df5),2),
+                sum_3HP = sum(`Once-weekly isoniazid-rifapentine for 12 weeks (3HP)`),
+                prop_3HP = round(sum_3HP / nrow(df5),2),
+                sum_3R = sum(`3-month rifampicin (3R)`),
+                prop_3R = round(sum_3R / nrow(df5),2),)
+    ```
 
-n per region
-```{r}
-tabyl(df$region_exact)
-```
+-   Once-weekly isoniazid-rifapentine and 3-month isoniazid-rifampicine were more commonly offered in high TB burden countries
 
-
+    ```{r}
+    df5_model |> group_by(HBC_ANY) |> 
+      summarize(
+        total = n(),
+        count = sum(`Once-weekly isoniazid-rifapentine for 12 weeks (3HP)` %in% c("Adults", "Adults & Children", "Children")),
+        proportion = round(count / total, 2)) |>gtsummary::tbl_uvregression(
+          method = glm,
+          include = c(HBC_ANY),
+          y = cbind(count, total - count),
+          method.args = list(family = binomial(link = "logit")),
+          exponentiate = TRUE,
+          pvalue_fun = ~style_pvalue(.x, digits = 2))
+    ```

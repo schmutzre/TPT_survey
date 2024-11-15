@@ -2,6 +2,18 @@
 #' This file includes plotting helper functions 
 ################################################################################
 
+#### Themes --------------------------------------------------------------------
+
+plain <- theme(
+  axis.text = element_blank(),
+  axis.line = element_blank(),
+  axis.ticks = element_blank(),
+  panel.border = element_blank(),
+  panel.grid = element_blank(),
+  axis.title = element_blank(),
+  panel.background = element_rect(fill = "white"),
+  plot.title = element_text(hjust = 0.5))
+
 #### Figure 1 ------------------------------------------------------------------
 
 library(dplyr)
@@ -161,8 +173,7 @@ fig1 <- function(stratifying_var, pct = FALSE) {
                        data = df_main %>% filter(response == "Yes"),
                        color = "white", 
                        size = 2.8) 
-      #geom_vline(aes(xintercept = mean_prop), data = prop1, linetype = "dotted", color = "white")
-    
+
     return(p)
   }
 }
@@ -202,8 +213,7 @@ fig2 <- function(stratifying_var, pct = FALSE) {
       Yes = sum(category == "Yes"),
       No = sum(category == "No"),
       total = n(),
-      .groups = 'drop'
-    ) %>%
+      .groups = 'drop') %>%
     ungroup() %>%
     mutate(prop_yes = Yes / total,
            pr_yes = round(prop_yes,2)) %>%
@@ -221,8 +231,7 @@ fig2 <- function(stratifying_var, pct = FALSE) {
       Yes = sum(category == "Yes"),
       No = sum(category == "No"),
       total = n(),
-      .groups = 'drop'
-    ) %>%
+      .groups = 'drop') %>%
     ungroup() %>%
     pivot_longer(cols = c("Yes", "No"), names_to = "response",
                  values_to = "count") %>%
@@ -270,8 +279,7 @@ fig2 <- function(stratifying_var, pct = FALSE) {
       expand = c(0,0), 
       labels = function(x) paste0(format(x * 100, digits = 2)),
       breaks = c(0, 0.25, 0.5, 0.75,  1)) 
-    #geom_vline(xintercept = 0.5, linetype = "dashed", color = "white")
-  
+
   if(pct == FALSE) {
     
     p + theme(
@@ -399,7 +407,6 @@ fig3 <- function(variable) {
 
 }
 
-
 #### Figure 5 ------------------------------------------------------------------
 
 fig5 <- function(stratifying_var) {
@@ -478,4 +485,3 @@ fig5 <- function(stratifying_var) {
     guides(fill = guide_legend(nrow = 1, byrow = TRUE))  # Split legend into 2 rows
   
 }
-
