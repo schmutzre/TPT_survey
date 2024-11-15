@@ -3,7 +3,6 @@
 /.Rproj.user
 /data_raw
 *.html
-/data_clean
 *.rds
 *.rds
 *.rds
