@@ -458,7 +458,7 @@ df5_model %>%
                                                                          HBC_ANY ~ "High burden country")) |>
     modify_table_body(
       ~mutate(.x, ci = ifelse(reference_row == TRUE, "Reference", ci))) |>
-  add_global_p()|>
+  add_global_p() |> 
   as_gt() |> 
   gt::gtsave(filename = "../results/tbl_rif.docx")
 ```
@@ -667,7 +667,8 @@ df7_binomial <- df1 |>
   dplyr::summarize(yes = sum(Yes),
                    no = sum(No), .groups = "drop") |>
   left_join(df |> 
-              dplyr::select(record_id, tbhiv_integration.factor, Income_group, Prev_cat.factor, HBC_ANY, tpt_training.factor, level.factor, region), by = "record_id") |>
+              dplyr::select(record_id, tbhiv_integration.factor, Income_group, Prev_cat.factor, HBC_ANY,
+                            tpt_training.factor, level.factor, region), by = "record_id") |>
   rename(
     'Level of integration' = tbhiv_integration.factor,
     'Income Level' = Income_group, 
@@ -714,11 +715,9 @@ fit_model_uni_binomial <- function(data) {
     method.args = list(family = binomial(link= "logit")),
        pvalue_fun = ~ifelse(. < 0.001, "<0.001", style_sigfig(., digits = 2)),
        hide_n = TRUE, 
-       add_estimate_to_reference_rows = TRUE
-     ) |>
+       add_estimate_to_reference_rows = TRUE) |>
      modify_table_body(
-       ~mutate(.x, ci = ifelse(reference_row == TRUE, "Reference", ci))
-     ) |>
+       ~mutate(.x, ci = ifelse(reference_row == TRUE, "Reference", ci))) |>
      add_global_p()
 }
 
@@ -734,6 +733,50 @@ tbl_merge(
   tab_spanner = c("People living with HIV", "Household contacts", "Other people at risk")) |> 
   as_gt() |> 
   gt::gtsave(filename = "../results/tbl3_binomial.docx")
+```
+
+#### Multivariable
+
+```{r}
+fit1 <- glm(cbind(yes, no) ~ `Level of integration` + `Income Level` + `HIV Prevalence` + `High burden country` + `TPT training` + `Facility level of care` + Region, 
+           data = plhiv_binomial, family = binomial(link = "logit"), method = "brglmFit")
+
+fit2 <- glm(cbind(yes, no) ~ `Level of integration` + `Income Level` + `HIV Prevalence` + `High burden country` + `TPT training` + `Facility level of care` + Region, 
+           data = household_binomial, family = binomial(link = "logit"), method = "brglmFit")
+
+fit3 <- glm(cbind(yes, no) ~ `Level of integration` + `Income Level` + `HIV Prevalence` + `High burden country` + `TPT training` + `Facility level of care` + Region, 
+           data = oPaR_binomial, family = binomial(link = "logit"), method = "brglmFit")
+
+tbl1 <- tbl_regression(fit1, 
+               exponentiate = TRUE,
+               pvalue_fun = ~ifelse(. < 0.001, "<0.001", style_sigfig(., digits = 2)),
+               add_estimate_to_reference_rows = TRUE) |> 
+     modify_table_body(
+       ~mutate(.x, ci = ifelse(reference_row == TRUE, "Reference", ci))) |>
+     add_global_p()
+
+tbl2 <- tbl_regression(fit2, 
+               exponentiate = TRUE,
+               pvalue_fun = ~ifelse(. < 0.001, "<0.001", style_sigfig(., digits = 2)),
+               add_estimate_to_reference_rows = TRUE) |> 
+     modify_table_body(
+       ~mutate(.x, ci = ifelse(reference_row == TRUE, "Reference", ci))) |>
+     add_global_p()
+
+tbl3 <- tbl_regression(fit3, 
+               exponentiate = TRUE,
+               pvalue_fun = ~ifelse(. < 0.001, "<0.001", style_sigfig(., digits = 2)),
+               add_estimate_to_reference_rows = TRUE) |> 
+     modify_table_body(
+       ~mutate(.x, ci = ifelse(reference_row == TRUE, "Reference", ci))) |>
+     add_global_p()
+
+# Merge the tables with tab spanners
+tbl_merge(
+  tbls = list(tbl1, tbl2, tbl3),
+  tab_spanner = c("People living with HIV", "Household contacts", "Other people at risk")) |> 
+  as_gt() |> 
+  gt::gtsave(filename = "../results/tbl3_binomial_multi.docx")
 ```
 
 # Results for Manuscript
