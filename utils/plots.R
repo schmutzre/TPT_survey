@@ -16,6 +16,99 @@ plain <- theme(
 
 #### Figure 1 ------------------------------------------------------------------
 
+fig1 <- function(variable) {
+  
+  data <- df1_map |> 
+    filter(who_group == variable) |> 
+    dplyr::select(-who_group) |> 
+    group_by(region_exact) |> 
+    summarise(prop = mean(any_yes == 1, na.rm = T))
+  
+  data2 <- df |> 
+    dplyr::select(record_id, country, region, region_exact) |>  
+    left_join(data, by = "region_exact") |> 
+    mutate(region = case_when(
+      country == "ARG" ~ "Argentina",
+      country == "AUS" ~ "Australia",
+      country == "BDI" ~ "Burundi",
+      country == "BEN" ~ "Benin",
+      country == "BFA" ~ "Burkina Faso",
+      country == "BRA" ~ "Brazil",
+      country == "CHL" ~ "Chile",
+      country == "CHN" ~ "China",
+      country == "CIV" ~ "Ivory Coast",
+      country == "CMR" ~ "Cameroon",
+      country == "COD" ~ "Democratic Republic of the Congo",
+      country == "COG" ~ "Republic of the Congo",
+      country == "GHA" ~ "Ghana",
+      country == "HND" ~ "Honduras",
+      country == "HTI" ~ "Haiti",
+      country == "IDN" ~ "Indonesia",
+      country == "IND" ~ "India",
+      country == "JPN" ~ "Japan",
+      country == "KEN" ~ "Kenya",
+      country == "KHM" ~ "Cambodia",
+      country == "KOR" ~ "South Korea",
+      country == "LSO" ~ "Lesotho",
+      country == "MEX" ~ "Mexico",
+      country == "MLI" ~ "Mali",
+      country == "MOZ" ~ "Mozambique",
+      country == "MWI" ~ "Malawi",
+      country == "MYS" ~ "Malaysia",
+      country == "NGA" ~ "Nigeria",
+      country == "PER" ~ "Peru",
+      country == "PHL" ~ "Philippines",
+      country == "RWA" ~ "Rwanda",
+      country == "SGP" ~ "Singapore",
+      country == "TGO" ~ "Togo",
+      country == "THA" ~ "Thailand",
+      country == "TWN" ~ "Taiwan",
+      country == "TZA" ~ "Tanzania",
+      country == "UGA" ~ "Uganda",
+      country == "VNM" ~ "Vietnam",
+      country == "ZAF" ~ "South Africa",
+      country == "ZMB" ~ "Zambia",
+      country == "ZWE" ~ "Zimbabwe",
+      TRUE ~ NA_character_))  
+  
+  worldSubsetA <- left_join(world, data2, by = "region", relationship =  "many-to-many") |> 
+    filter(region != "Antarctica")
+  
+  p <- worldSubsetA |> 
+    ggplot(aes(x = long, y = lat)) +
+    coord_fixed(1.6) +
+    geom_polygon(aes(fill = prop, group = group), color = "grey25", linewidth = 0.15) +
+    labs(fill = "", x = "", y = "") +
+    theme_bw()+
+    theme(
+      legend.key.width = unit(2, "cm"),
+      axis.text = element_blank(),         # Remove axis text
+      axis.ticks = element_blank(),
+      legend.margin = margin(t = 0, b = 0, unit = "pt"),
+      legend.position = c(0.5, 0.7),
+      legend.box.margin = margin(t = 0, b = 0, unit = "pt"),
+      panel.grid.major = element_blank(), 
+      panel.grid.minor = element_blank(), 
+      text = element_text(size = 10),   # Set the base font size here
+      axis.title = element_text(size = 10),
+      plot.title = element_text(size = 10),
+      legend.title = element_text(size = 10),
+      legend.text = element_text(size = 10)) +
+    scale_fill_scico(
+      palette = "roma", begin = 0, end = 1, na.value = "white", 
+      limits = c(0, 1),
+      oob = scales::oob_squish, labels = scales::label_percent(scale = 100),
+      guide = guide_colorbar(
+        barwidth = 1, barheight = 10, title.position = "top",
+        title.hjust = 0.5, label.hjust = 0.5, frame.colour = "black", ticks = TRUE)) +
+    labs(x = element_blank(), y = element_blank())
+  
+  return(p)
+  
+}
+
+#### Figure 2 ------------------------------------------------------------------
+
 library(dplyr)
 library(tidyr)
 library(ggplot2)
@@ -23,11 +116,11 @@ library(stringr)
 library(wesanderson)  
 library(scico)
 
-fig1 <- function(stratifying_var, pct = FALSE) {
+fig2 <- function(data, stratifying_var, pct = FALSE) {
 
     if (stratifying_var == "HBC") {
     
-    hbc <- df1 %>%
+    hbc <- data %>%
       rowwise() %>%
       mutate(
         HBC = {
@@ -46,11 +139,11 @@ fig1 <- function(stratifying_var, pct = FALSE) {
       filter(!str_detect(HBC, ",")) %>%
       mutate(HBC = ifelse(HBC == "", "Not HBC", HBC))
     
-    df1 <- bind_rows(duplicated, no_duplication)
+    data <- bind_rows(duplicated, no_duplication)
     
   }
   
-  df_order <- df1 %>% 
+  df_order <- data %>% 
     group_by(who_group, variable) %>%
     dplyr::summarize(
       Yes = sum(category == "Yes"),
@@ -66,7 +159,7 @@ fig1 <- function(stratifying_var, pct = FALSE) {
     mutate(response = as.factor(response)) %>% 
     dplyr::select(prop_yes, variable, response)
     
-  df_main <- df1 %>%
+  df_main <- data %>%
     group_by(who_group, variable, !!sym(stratifying_var)) %>%
     dplyr::summarize(
       Yes = sum(category == "Yes"),
@@ -110,6 +203,7 @@ fig1 <- function(stratifying_var, pct = FALSE) {
       text = element_text(size = 10),   # Set the base font size here
       axis.title = element_text(size = 10),
       axis.text = element_text(size = 10),
+      panel.grid = element_blank(),
       #legend.key.size = unit(0.1, "cm"),
       plot.title = element_text(size = 10),
       legend.title = element_text(size = 10),
@@ -155,15 +249,14 @@ fig1 <- function(stratifying_var, pct = FALSE) {
   }
   
   else {
-    prop1 <- df1 %>% 
+    prop1 <- data %>% 
       group_by(who_group, variable) %>% 
-      summarize(yes_sum = sum(category == "Yes"),
+      dplyr::summarize(yes_sum = sum(category == "Yes"),
                 total = n(),
-                prop = round(yes_sum / total, 2)) %>% 
-      ungroup() %>% 
+                prop = round(yes_sum / total, 2),
+                .groups = "drop") %>% 
       group_by(who_group) %>% 
-      summarize(mean_prop = mean(prop, na.rm = TRUE)) %>% 
-      ungroup()
+      dplyr::summarize(mean_prop = mean(prop, na.rm = TRUE), .groups = "drop")  
     
     df_main <- df_main %>% 
       left_join(prop1, by = "who_group")
@@ -178,9 +271,9 @@ fig1 <- function(stratifying_var, pct = FALSE) {
   }
 }
 
-#### Figure 2 ------------------------------------------------------------------
+#### Figure 3 ------------------------------------------------------------------
 
-fig2 <- function(stratifying_var, pct = FALSE) {
+fig3 <- function(stratifying_var, pct = FALSE) {
 
     if (stratifying_var == "HBC") {
     
@@ -266,6 +359,7 @@ fig2 <- function(stratifying_var, pct = FALSE) {
       plot.margin = margin(t = 5, r = 10, b = 5, l = 5, unit = "pt"),
       text = element_text(size = 10),   # Set the base font size here
       axis.title = element_text(size = 10),
+      panel.grid = element_blank(),
       axis.text = element_text(size = 10),
       plot.title = element_text(size = 10),
       legend.title = element_text(size = 10),
@@ -312,108 +406,13 @@ fig2 <- function(stratifying_var, pct = FALSE) {
   
 }
 
-#### Figure 3 ------------------------------------------------------------------
+#### Figure 4 ------------------------------------------------------------------
 
-fig3 <- function(variable) {
-  
-  data <- df3 %>% filter(who_group == variable) %>% 
-    dplyr::select(-who_group) %>% 
-    group_by(region_exact) %>% 
-    summarise(prop = mean(any_yes == 1, na.rm = T))
-  
-  data2 <- df %>% 
-    dplyr::select(record_id, country, region, region_exact)  %>% 
-    left_join(data, by = "region_exact") %>%   
-    mutate(region = case_when(
-      country == "ARG" ~ "Argentina",
-      country == "AUS" ~ "Australia",
-      country == "BDI" ~ "Burundi",
-      country == "BEN" ~ "Benin",
-      country == "BFA" ~ "Burkina Faso",
-      country == "BRA" ~ "Brazil",
-      country == "CHL" ~ "Chile",
-      country == "CHN" ~ "China",
-      country == "CIV" ~ "Ivory Coast",
-      country == "CMR" ~ "Cameroon",
-      country == "COD" ~ "Democratic Republic of the Congo",
-      country == "COG" ~ "Republic of the Congo",
-      country == "GHA" ~ "Ghana",
-      country == "HND" ~ "Honduras",
-      country == "HTI" ~ "Haiti",
-      country == "IDN" ~ "Indonesia",
-      country == "IND" ~ "India",
-      country == "JPN" ~ "Japan",
-      country == "KEN" ~ "Kenya",
-      country == "KHM" ~ "Cambodia",
-      country == "KOR" ~ "South Korea",
-      country == "LSO" ~ "Lesotho",
-      country == "MEX" ~ "Mexico",
-      country == "MLI" ~ "Mali",
-      country == "MOZ" ~ "Mozambique",
-      country == "MWI" ~ "Malawi",
-      country == "MYS" ~ "Malaysia",
-      country == "NGA" ~ "Nigeria",
-      country == "PER" ~ "Peru",
-      country == "PHL" ~ "Philippines",
-      country == "RWA" ~ "Rwanda",
-      country == "SGP" ~ "Singapore",
-      country == "TGO" ~ "Togo",
-      country == "THA" ~ "Thailand",
-      country == "TWN" ~ "Taiwan",
-      country == "TZA" ~ "Tanzania",
-      country == "UGA" ~ "Uganda",
-      country == "VNM" ~ "Vietnam",
-      country == "ZAF" ~ "South Africa",
-      country == "ZMB" ~ "Zambia",
-      country == "ZWE" ~ "Zimbabwe",
-      TRUE ~ NA_character_))  
-  
-  worldSubsetA <- left_join(world, data2, by = "region", relationship =  "many-to-many") %>% 
-    filter(region != "Antarctica")
-    
-    p <- worldSubsetA %>%
-      ggplot(aes(x = long, y = lat)) +
-      coord_fixed(1.6) +
-      geom_polygon(aes(fill = prop, group = group), color = "grey25", linewidth = 0.15) +
-      labs(fill = "", x = "", y = "") +
-      theme_bw()+
-      theme(
-        legend.key.width = unit(2, "cm"),
-        axis.text = element_blank(),         # Remove axis text
-        axis.ticks = element_blank(),
-        legend.margin = margin(t = 0, b = 0, unit = "pt"),
-        legend.position = c(0.5, 0.7),
-        legend.box.margin = margin(t = 0, b = 0, unit = "pt"),
-        panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(), 
-        text = element_text(size = 10),   # Set the base font size here
-        axis.title = element_text(size = 10),
-        plot.title = element_text(size = 10),
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 10)
-      ) +
-      scale_fill_scico(
-        palette = "roma", begin = 0, end = 1, na.value = "white", 
-        limits = c(0, 1),
-        oob = scales::oob_squish, labels = scales::label_percent(scale = 100),
-        guide = guide_colorbar(
-          barwidth = 1, barheight = 10, title.position = "top",
-          title.hjust = 0.5, label.hjust = 0.5, frame.colour = "black", ticks = TRUE
-        )
-      ) +
-      labs(x = element_blank(), y = element_blank())
-    
-  return(p)
-
-}
-
-#### Figure 5 ------------------------------------------------------------------
-
-fig5 <- function(stratifying_var) {
+fig4 <- function(stratifying_var) {
 
     if (stratifying_var == "HBC") {
     
-    hbc <- df5b %>%
+    hbc <- df4 %>%
       rowwise() %>%
       mutate(
         HBC = {
@@ -432,21 +431,21 @@ fig5 <- function(stratifying_var) {
       filter(!str_detect(HBC, ",")) %>%
       mutate(HBC = ifelse(HBC == "", "Not HBC", HBC))
     
-    df5b <- bind_rows(duplicated, no_duplication)
+    df4 <- bind_rows(duplicated, no_duplication)
     
   }
   
-  lvl <- c("Don't know", "Not offered", "Children", "Adults", "Adults & Children")
-  lvl_rev <- c("Adults & Children", "Adults", "Children", "Not offered", "Don't know")
+  lvl <- c("Don't know", "Not offered", "Children only", "Adults only", "Adults & Children")
+  lvl_rev <- c("Adults & Children", "Adults only", "Children only", "Not offered", "Don't know")
   
   custom_colors <- c("Adults & Children" = "#8ac0ff",  
-                     "Adults" = "#abe1ff",  
-                     "Children" = "#d0f2ff",  
+                     "Adults only" = "#abe1ff",  
+                     "Children only" = "#d0f2ff",  
                      "Not offered" = "#fde9d8",  
                      "Don't know" = "#d3d3d3")
   
   # the legend should have two rows because there are so many levels
-  df5b %>% 
+  df4 %>% 
     ggplot(aes(y = variable, 
                fill = factor(category, levels = lvl, exclude = NULL))) +
     geom_bar(position = "fill") +
@@ -468,6 +467,7 @@ fig5 <- function(stratifying_var) {
       text = element_text(size = 10),   # Set the base font size here
       axis.title = element_text(size = 10),
       axis.text = element_text(size = 10),
+      panel.grid = element_blank(),
       plot.title = element_text(size = 10),
       legend.title = element_text(size = 10),
       legend.text = element_text(size = 8),
@@ -477,6 +477,7 @@ fig5 <- function(stratifying_var) {
       values = custom_colors,
       breaks = lvl_rev,
       name = NULL) +
+    scale_y_discrete(labels = function(x) str_wrap(x, width = 37))+
     scale_x_continuous(
       expand = c(0,0), 
       labels = function(x) paste0(format(x * 100, digits = 2)),
