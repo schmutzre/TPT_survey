@@ -155,7 +155,7 @@ fig1c <- fig1(variable = "Other people at risk") +
     theme(plot.margin = unit(c(0,0.01,0,0), "cm")) 
 
 fig.1 <- (fig1a + fig1b + fig1c) +
-  plot_layout(ncol = 1, guides = "collect") 
+  plot_layout(ncol = 1, guides = "collect")
 ggsave("../results_revision/main/fig1.tiff", plot = fig.1, width = 12, height = 16, units = "cm", dpi = 300)
 ```
 
@@ -310,7 +310,7 @@ tbl_merge(
   gt::gtsave(filename = "../results_revision/supplements/tblS3.docx")
 ```
 
-# Table S4
+# Table S5
 
 Associations with RIF-based regimen
 
@@ -341,7 +341,7 @@ df3_model$`Income Level` <- relevel(df3_model$`Income Level`, ref = "Upper middl
 
 # univariable
 
-tbls4_uni2 <- df3_model |>
+tbls4_uni <- df3_model |>
     tbl_uvregression(include = c(`Level of integration`,
                                  `Income Level`,
                                  `HIV Prevalence`,
@@ -391,7 +391,7 @@ tbls4_multi <- tbl_regression(fit1,
 
 tbl_merge(tbls = list(tbls4_uni, tbls4_multi), tab_spanner = c("Univariable", "Multivariable")) |> 
   as_gt() |> 
-  gt::gtsave(filename = "../results_revision/supplements/tblS4.docx")
+  gt::gtsave(filename = "../results_revision/supplements/tblS5.docx")
 ```
 
 # Table 1
@@ -479,7 +479,7 @@ tbl_merge(
   tbls = tbls_binom,
   tab_spanner = c("People living with HIV", "Household contacts", "Other people at risk")) |> 
   as_gt() |> 
-  gt::gtsave(filename = "../results_revision/main/tbl1_univariable.docx")
+  gt::gtsave(filename = "../results_revision/supplements/tblS4.docx")
 ```
 
 ## Multivariable
@@ -532,13 +532,6 @@ tbl3 <- tbl_regression(fit3,
           estimate = ifelse(reference_row == TRUE, 1, estimate),
           ci = ifelse(reference_row == TRUE, "Reference", ci))) |>
      add_global_p()
-
-# Merge the tables with tab spanners
-tbl_merge(
-  tbls = list(tbl1, tbl2, tbl3),
-  tab_spanner = c("People living with HIV", "Household contacts", "Other people at risk")) |> 
-  as_gt() |> 
-  gt::gtsave(filename = "../results_revision/supplements/tbl1_multi.docx")
 ```
 
 ### Subsample of variables
@@ -596,71 +589,7 @@ tbl_merge(
   tbls = list(tbl1, tbl2, tbl3),
   tab_spanner = c("People living with HIV", "Household contacts", "Other people at risk")) |> 
   as_gt() |> 
-  gt::gtsave(filename = "../results_revision/supplements/tbl1_multi_subset.docx")
-```
-
-## Sensitivity Analysis - Including the previously excluded sites
-
-I re-run everything separately in order to make sure nothing is overwritten. This analysis is done because of a comment of a reviewer but will not be further used. 
-
-```{r, warning = FALSE}
-df7sens_binomial <- df1_noTPT |>
-  mutate(Yes = ifelse(category == "Yes", 1, 0),
-         No = ifelse(category == "No", 1, 0)) |>
-  group_by(record_id, who_group) |>
-  dplyr::summarize(yes = sum(Yes),
-                   no = sum(No), .groups = "drop") |>
-  left_join(df_both |> 
-              dplyr::select(record_id, tbhiv_integration.factor, Income_group, Prev_cat.factor, HBC_ANY,
-                            tpt_training.factor, level.factor, region), by = "record_id") |>
-  rename(
-    'Level of integration' = tbhiv_integration.factor,
-    'Income Level' = Income_group, 
-    'HIV Prevalence' = Prev_cat.factor,
-    'High burden country' = HBC_ANY,
-    'TPT training' = tpt_training.factor,
-    'Facility level of care' = level.factor,
-    'Region' = region) |>
-  mutate(`Income Level` = as.factor(`Income Level`),
-         `TPT training` = as.factor(case_when(`TPT training` %in% c(NA, "Dont Know") ~ NA,
-                                    TRUE ~ `TPT training`))) |> 
-  ungroup()
-
-df7sens_binomial$`Level of integration` <- relevel(df7sens_binomial$`Level of integration`, ref = "No")
-df7sens_binomial$`Income Level` <- relevel(df7sens_binomial$`Income Level`, ref = "Upper middle")
-df7sens_binomial$`HIV Prevalence` <- relevel(df7sens_binomial$`HIV Prevalence`, ref = "Low")
-df7sens_binomial$`TPT training` <- relevel(df7sens_binomial$`TPT training`, ref = "No")
-df7sens_binomial$`TPT training` <- droplevels(df7sens_binomial$`TPT training`)
-df7sens_binomial$`Facility level of care` <- relevel(df7sens_binomial$`Facility level of care`, ref = "District hospital")
-df7sens_binomial$`Facility level of care` <- droplevels(df7sens_binomial$`Facility level of care`)
-df7sens_binomial$Region <- relevel(df7sens_binomial$Region, ref = "Africa")
-df7sens_binomial$`High burden country` <- relevel(df7sens_binomial$`High burden country`, ref = "No")
-df7sens_binomial$`Income Level` <- droplevels(df7sens_binomial$`Income Level`)
-
-plhiv_binomialsens <- df7sens_binomial |> 
-  filter(who_group == "People living with HIV") |>
-  dplyr::select(-record_id, -who_group)
-
-household_binomialsens <- df7sens_binomial |>
-  filter(who_group == "Household contacts") |>
-  dplyr::select(-record_id,-who_group)
-
-oPaR_binomialsens <- df7sens_binomial |>
-  filter(who_group == "Other people at risk") |>
-  dplyr::select(-record_id, -who_group) 
-
-# Combine datasets into a list
-dataset_list_binomial_sens <- list(plhiv_binomialsens,household_binomialsens,oPaR_binomialsens)
-
-# Apply the univariate model function to each dataset
-tbls_binom_sens <- lapply(dataset_list_binomial_sens, fit_model_uni_binomial)
-
-# Merge the tables with tab spanners
-tbl_merge(
-  tbls = tbls_binom_sens,
-  tab_spanner = c("People living with HIV", "Household contacts", "Other people at risk")) 
-  as_gt() |> 
-  gt::gtsave(filename = "../results_revision/supplements/tbl1_univariable_including6clinics.docx")
+  gt::gtsave(filename = "../results_revision/main/tbl1.docx")
 ```
 
 # Results for Manuscript text
