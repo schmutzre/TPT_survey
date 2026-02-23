@@ -206,6 +206,9 @@ fig2 <- function(data, stratifying_var, pct = FALSE) {
       panel.grid = element_blank(),
       #legend.key.size = unit(0.1, "cm"),
       plot.title = element_text(size = 10),
+      plot.background  = element_rect(fill = "white", colour = NA),
+      panel.background = element_rect(fill = "white", colour = NA),
+      panel.border     = element_blank(),
       legend.title = element_text(size = 10),
       legend.text = element_text(size = 10),
       strip.text.x = element_text(size = 10),  # Set facet label size for columns
@@ -233,6 +236,7 @@ fig2 <- function(data, stratifying_var, pct = FALSE) {
         axis.title = element_text(size = 10),
         axis.text = element_text(size = 10),
         plot.title = element_text(size = 10),
+        plot.background = element_rect(fill = "white"),
         legend.title = element_text(size = 10),
         legend.key.size = unit(0.1, "cm"),
         legend.text = element_text(size = 8),
@@ -328,11 +332,26 @@ fig3 <- function(stratifying_var, pct = FALSE) {
     ungroup() %>%
     pivot_longer(cols = c("Yes", "No"), names_to = "response",
                  values_to = "count") %>%
-    mutate(response = as.factor(response)) %>% 
-    mutate(variable = factor(variable, levels = unique(variable))) %>%
     left_join(df_order, by = c("variable", "response")) %>% 
-    arrange(desc(variable == "No barriers"), prop_yes) %>%
-    mutate(variable = factor(variable, levels = unique(variable)))
+    mutate(
+      response = as.factor(response),
+      variable = dplyr::recode(
+        variable,
+        "Patients refuse TPT"                 = "Patient refusal of TPT",
+        "Medication availability"             = "Medication availability constraints",
+        "Availability of diagnostics active TB" =
+          "Limited availability of active TB diagnostics",
+        "Concerns drug resistance"             = "Concerns about drug resistance",
+        "TB infection test stockouts"          = "TB infection test stockouts",
+        "Increased workload"                   = "Increased clinical workload",
+        "Access to HIV care service delivery"  =
+          "Limited access to HIV care services",
+        "Other barriers"                       = "Other reported barriers",
+        "No barriers"                          = "No reported barriers"
+      )
+    ) %>%
+    arrange(desc(variable == "No reported barriers"), prop_yes) %>%
+    mutate(variable = factor(variable, levels = unique(variable))) 
   
   lvl <- c("No", "Yes")
   
@@ -362,6 +381,9 @@ fig3 <- function(stratifying_var, pct = FALSE) {
       panel.grid = element_blank(),
       axis.text = element_text(size = 10),
       plot.title = element_text(size = 10),
+      plot.background  = element_rect(fill = "white", colour = NA),
+      panel.background = element_rect(fill = "white", colour = NA),
+      panel.border     = element_blank(),
       legend.title = element_text(size = 10),
       legend.text = element_text(size = 10)
       ) +
@@ -386,6 +408,7 @@ fig3 <- function(stratifying_var, pct = FALSE) {
       axis.text = element_text(size = 6),
       plot.title = element_text(size = 6),
       legend.title = element_text(size = 6),
+      plot.background = element_rect(fill = "white"),
       legend.text = element_text(size = 6),
       strip.text.x = element_text(size = 6),  # Set facet label size for columns
       strip.text.y = element_text(size = 6) ) 
@@ -468,6 +491,9 @@ fig4 <- function(stratifying_var) {
       axis.title = element_text(size = 10),
       axis.text = element_text(size = 10),
       panel.grid = element_blank(),
+      plot.background  = element_rect(fill = "white", colour = NA),
+      panel.background = element_rect(fill = "white", colour = NA),
+      panel.border     = element_blank(),
       plot.title = element_text(size = 10),
       legend.title = element_text(size = 10),
       legend.text = element_text(size = 8),
